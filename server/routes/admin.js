@@ -1,39 +1,63 @@
-import express from 'express';
-import { config } from '../env.js';
+import { Router } from 'express';
+import { env } from '../env.js';
+import { ApiError, asyncRoute } from '../lib/http.js';
+import { requireAdmin, getUserFromRequest, isAdminUser } from '../lib/auth.js';
+import { admin } from '../lib/supabase.js';
+import * as store from '../lib/store.js';
+import { parseAmount } from '../lib/bakong.js';
+import { createPayment } from './bakong.js';
 
-const router = express.Router();
+export const router = Router();
 
-router.post('/login', (req, res) => {
-  try {
-    const { username, password } = req.body;
+// Used by the SPA to decide between dashboard / login / 404. Never trusts the browser.
+router.get('/me', asyncRoute(async (req, res) => {
+  const user = await getUserFromRequest(req);
+  if (!user) return res.json({ ok: true, authenticated: false, isAdmin: false });
+  res.json({ ok: true, authenticated: true, isAdmin: isAdminUser(user) });
+}));
 
-    // Validate siteUrl format
-    if (!config.siteUrl || !config.siteUrl.startsWith('http')) {
-      return res.status(500).json({
-        code: 500,
-        error_code: "invalid_site_url",
-        msg: "site url is improperly formatted. Must include http:// or https:// in server/.env",
-      });
-    }
+router.use(requireAdmin);
 
-    if (!username || !password) {
-      return res.status(400).json({ success: false, error: 'Username and password required' });
-    }
+router.get('/config', (req, res) => res.json({
+  ok: true,
+  bakong: { configured: env.features.bakong, environment: env.bakong.env, accountId: env.bakong.accountId || null,
+            merchantName: env.bakong.merchantName || null, baseUrl: env.bakong.baseUrl || null, tokenSet: !!env.bakong.token },
+  resend: { configured: env.features.resend, from: env.resend.from || null, to: env.resend.to },
+  supabase: { configured: env.features.supabase }, adminEmail: env.adminEmail,
+}));
 
-    // Mock successful authentication response
-    return res.status(200).json({
-      success: true,
-      site_url: config.siteUrl,
-      user: { username, role: 'admin' },
-      token: 'admin-session-token-12345'
-    });
-  } catch (error) {
-    return res.status(500).json({
-      code: 500,
-      error_code: "unexpected_failure",
-      msg: error.message
-    });
-  }
-});
+router.get('/payments', asyncRoute(async (req, res) => {
+  const status = ['pending', 'confirmed', 'expired', 'cancelled', 'failed'].includes(req.query.status) ? req.query.status : undefined;
+  const rows = await store.listPayments({ status, limit: 200 });
+  // md5/qr are not needed in the log table
+  res.json({ ok: true, payments: rows.map(({ qr, md5, ...r }) => r) });
+}));
 
-export default router;
+// "Test Bakong": makes a real KHQR so the UI can be exercised. It is flagged is_test.
+// If someone actually pays it, normal server-side verification still applies.
+router.post('/bakong/test', asyncRoute(async (req, res) => {
+  if (!env.features.bakong) throw new ApiError(503, 'Bakong is not configured.', 'bakong_off');
+  const { amount, currency } = parseAmount(req.body?.amount ?? 0.01, req.body?.currency ?? 'USD');
+  const p = await createPayment({ amount, currency, isTest: true });
+  res.status(201).json({ ok: true, payment: { id: p.id, status: p.status, amount: Number(p.amount), currency: p.currency, qr: p.qr,
+    expiresAt: p.expires_at, isTest: true, environment: p.environment, recipient: { name: env.bakong.merchantName, city: env.bakong.merchantCity } } });
+}));
+
+router.get('/messages', asyncRoute(async (req, res) => {
+  if (!admin) throw new ApiError(503, 'Supabase is not configured.', 'supabase_off');
+  const { data, error } = await admin.from('contact_submissions').select('*').order('created_at', { ascending: false }).limit(300);
+  if (error) throw error;
+  res.json({ ok: true, messages: data });
+}));
+router.patch('/messages/:id', asyncRoute(async (req, res) => {
+  if (!admin) throw new ApiError(503, 'Supabase is not configured.', 'supabase_off');
+  const { error } = await admin.from('contact_submissions').update({ is_read: !!req.body?.is_read }).eq('id', req.params.id);
+  if (error) throw error;
+  res.json({ ok: true });
+}));
+router.delete('/messages/:id', asyncRoute(async (req, res) => {
+  if (!admin) throw new ApiError(503, 'Supabase is not configured.', 'supabase_off');
+  const { error } = await admin.from('contact_submissions').delete().eq('id', req.params.id);
+  if (error) throw error;
+  res.json({ ok: true });
+}));

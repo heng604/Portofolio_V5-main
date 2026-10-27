@@ -81,15 +81,13 @@ Note: the old `profiles.role` mechanism is no longer used for authorization.
 
 ## 9. Deployment
 `npm run build` then `npm start` (`NODE_ENV=production`): Express serves `dist/` and `/api` from one origin.
-Use Render / Railway / a VPS (or Docker). **Vercel static hosting alone will not work** for tips/contact/admin (no API);
-`vercel.json` rewrites everything to `index.html`, which is what produces JSON-parse errors on `/api/*` there.
-Set every variable from `.env.example` in the host's environment settings, set `SITE_URL`, and update the Supabase/Google redirect URLs.
+For Vercel, this version includes `api/[...path].js`, a serverless entry point that routes `/api/*` requests to the Express API before the SPA fallback. Configure every variable from `.env.example` in Vercel Project Settings, set `SITE_URL`, and update the Supabase/Google redirect URLs. If your project is configured as static-only or the function is not deployed, host the API on Render / Railway / a VPS and proxy `/api/*` to it; a static-only site cannot verify Bakong payments.
 
 ## 10. Troubleshooting
 | Symptom | Cause / fix |
 |---|---|
 | `Unexpected end of JSON input` / "returned an empty response" | API server not running or proxy cannot reach it: run `npm run dev:all`; check port 8787 |
-| "returned a web page instead of JSON" | `/api` is being served by a static host (see Deployment) |
+| "returned a web page instead of JSON" | API function is not deployed or `/api` is rewritten to the SPA; check Vercel Functions and server environment variables, or host the API on Render / Railway / a VPS |
 | `bakong_auth` | Token wrong/expired, or server IP blocked by Bakong |
 | `bakong_bad_response` | Bakong returned empty/non-JSON (usually IP block) |
 | Server exits at start | Read the `[env]` message: missing/partial variables |
