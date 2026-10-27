@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback, memo } from "react"
+import React, { useState, useEffect, useCallback, useMemo, memo } from "react"
 import { Helmet } from "react-helmet-async"
 import { Github, Facebook, Mail, ExternalLink, Instagram, Sparkles } from "lucide-react"
+import { useSettings } from "../lib/useSetting"
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 
@@ -18,25 +19,30 @@ const StatusBadge = memo(() => (
   </div>
 ));
 
-const MainTitle = memo(() => (
+const MainTitle = memo(({ title = "Networking Engineer" }) => {
+  const i = title.trim().lastIndexOf(" ");
+  const first = i > 0 ? title.trim().slice(0, i) : title.trim();
+  const second = i > 0 ? title.trim().slice(i + 1) : "";
+  return (
   <div className="space-y-2" data-aos="fade-up" data-aos-delay="600">
     <h1 className="text-5xl sm:text-6xl md:text-6xl lg:text-6xl xl:text-7xl font-bold tracking-tight">
       <span className="relative inline-block">
         <span className="absolute -inset-2 bg-gradient-to-r from-[#6366f1] to-[#a855f7] blur-2xl opacity-20"></span>
         <span className="relative bg-gradient-to-r from-white via-blue-100 to-purple-200 bg-clip-text text-transparent">
-          Networking
+          {first}
         </span>
       </span>
       <br />
       <span className="relative inline-block mt-2">
         <span className="absolute -inset-2 bg-gradient-to-r from-[#6366f1] to-[#a855f7] blur-2xl opacity-20"></span>
         <span className="relative bg-gradient-to-r from-[#6366f1] to-[#a855f7] bg-clip-text text-transparent">
-          Engineer
+          {second}
         </span>
       </span>
     </h1>
   </div>
-));
+  );
+});
 
 const TechStack = memo(({ tech }) => (
   <div className="px-4 py-2 hidden sm:block rounded-full bg-white/5 backdrop-blur-sm border border-white/10 text-sm text-gray-300 hover:bg-white/10 transition-colors">
@@ -76,15 +82,25 @@ const SocialLink = memo(({ icon: Icon, link, label }) => (
 const TYPING_SPEED = 100;
 const ERASING_SPEED = 50;
 const PAUSE_DURATION = 2000;
-const WORDS = ["Network & Telecom Student", "Tech Enthusiast"];
+const DEFAULT_WORDS = ["Network & Telecom Student", "Tech Enthusiast"];
 const TECH_STACK = ["React", "Kali Linux", "Wireshark", "Cisco"];
-const SOCIAL_LINKS = [
+const DEFAULT_SOCIAL = [
   { icon: Github, link: "https://github.com/heng604", label: "GitHub Profile" },
   { icon: Facebook, link: "https://www.facebook.com/Masatoshi56566", label: "Facebook Profile" },
   { icon: Instagram, link: "https://www.instagram.com/wtoto_58/#", label: "Instagram Profile" }
 ];
 
 const Home = () => {
+  const cfg = useSettings()
+  const WORDS = useMemo(() => {
+    const w = (cfg.hero_words || "").split(",").map((x) => x.trim()).filter(Boolean)
+    return w.length ? w : DEFAULT_WORDS
+  }, [cfg.hero_words])
+  const SOCIAL_LINKS = [
+    { icon: Github, link: cfg.social_github || DEFAULT_SOCIAL[0].link, label: "GitHub Profile" },
+    { icon: Facebook, link: cfg.social_facebook || DEFAULT_SOCIAL[1].link, label: "Facebook Profile" },
+    { icon: Instagram, link: cfg.social_instagram || DEFAULT_SOCIAL[2].link, label: "Instagram Profile" },
+  ]
   const [text, setText] = useState("")
   const [isTyping, setIsTyping] = useState(true)
   const [wordIndex, setWordIndex] = useState(0)
@@ -112,8 +128,9 @@ const Home = () => {
 
   const handleTyping = useCallback(() => {
     if (isTyping) {
-      if (charIndex < WORDS[wordIndex].length) {
-        setText(prev => prev + WORDS[wordIndex][charIndex]);
+      const word = WORDS[wordIndex % WORDS.length]
+      if (charIndex < word.length) {
+        setText(prev => prev + word[charIndex]);
         setCharIndex(prev => prev + 1);
       } else {
         setTimeout(() => setIsTyping(false), PAUSE_DURATION);
@@ -127,7 +144,7 @@ const Home = () => {
         setIsTyping(true);
       }
     }
-  }, [charIndex, isTyping, wordIndex]);
+  }, [charIndex, isTyping, wordIndex, WORDS]);
 
   useEffect(() => {
     const timeout = setTimeout(
@@ -140,8 +157,8 @@ const Home = () => {
   return (
     <>
       <Helmet>
-        <title>Theng Seangheng — Networking Engineer</title>
-        <meta name="description" content="គេហទំព័រផ្លូវការរបស់ Theng Seangheng, Networking Engineer។ ខ្ញុំផ្តោតលើការបង្កើតបទពិសោធន៍ឌីជីថលដែលទាក់ទាញ ហើយខិតខំផ្តល់ដំណោះស្រាយល្អបំផុតក្នុងគ្រប់គម្រោងដែលខ្ញុំធ្វើ។" />
+        <title>{cfg.seo_title || "Theng Seangheng — Networking Engineer"}</title>
+        <meta name="description" content={cfg.seo_description || "គេហទំព័រផ្លូវការរបស់ Theng Seangheng, Networking Engineer។ ខ្ញុំផ្តោតលើការបង្កើតបទពិសោធន៍ឌីជីថលដែលទាក់ទាញ ហើយខិតខំផ្តល់ដំណោះស្រាយល្អបំផុតក្នុងគ្រប់គម្រោងដែលខ្ញុំធ្វើ។"} />
      <meta name="robots" content="index, follow" />
         <link rel="canonical" href="https://masatoshi.com" />
         <meta property="og:title" content="Theng Seangheng — Networking Engineer" />
@@ -174,7 +191,7 @@ const Home = () => {
                 data-aos-delay="200">
                 <div className="space-y-4 sm:space-y-6">
                   <StatusBadge />
-                  <MainTitle />
+                  <MainTitle title={cfg.hero_title || "Networking Engineer"} />
 
                   {/* Typing Effect */}
                   <div className="h-8 flex items-center" data-aos="fade-up" data-aos-delay="800">
@@ -188,7 +205,7 @@ const Home = () => {
                   <p className="text-base md:text-lg text-gray-400 max-w-xl leading-relaxed font-light"
                     data-aos="fade-up"
                     data-aos-delay="1000">
-                    បង្កើតគេហទំព័រដែលច្នៃប្រតិដ្ឋ មានមុខងារ និងងាយស្រួលប្រើ សម្រាប់ដំណោះស្រាយឌីជីថល។
+                    {cfg.hero_subtitle || "បង្កើតគេហទំព័រដែលច្នៃប្រតិដ្ឋ មានមុខងារ និងងាយស្រួលប្រើ សម្រាប់ដំណោះស្រាយឌីជីថល។"}
                   </p>
 
                   {/* Tech Stack */}
@@ -229,7 +246,7 @@ const Home = () => {
                     isHovering ? "scale-105" : "scale-100"
                   }`}>
                     <img
-                      src="Animation1.gif"
+                      src={cfg.hero_image || "Animation1.gif"}
                       alt="Developer Animation"
                       className={`w-full h-full object-contain transition-all duration-500 ${
                         isHovering 

@@ -1,4 +1,4 @@
-import { useSetting } from "../lib/useSetting";
+import { useSettings } from "../lib/useSetting";
 import React, { useEffect, useState, memo, useMemo } from "react"
 import localCertificates from "../data/certificates";
 import { FileText, Code, Award, Globe, ArrowUpRight, Sparkles, UserCheck } from "lucide-react"
@@ -29,7 +29,7 @@ const Header = memo(() => (
   </div>
 ));
 
-const ProfileImage = memo(() => (
+const ProfileImage = memo(({ src }) => (
   <div className="flex justify-end items-center sm:p-12 sm:py-0 sm:pb-0 p-0 py-2 pb-2">
     <div 
       className="relative group" 
@@ -52,7 +52,7 @@ const ProfileImage = memo(() => (
           <div className="absolute inset-0 bg-gradient-to-t from-purple-500/20 via-transparent to-blue-500/20 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-700 hidden sm:block" />
           
           <img
-            src="/Photo.jpeg"
+            src={src}
             alt="Profile"
             className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110 group-hover:rotate-2"
             loading="lazy"
@@ -115,7 +115,8 @@ const StatCard = memo(({ icon: Icon, color, value, label, description, animation
 ));
 
 const AboutPage = () => {
-  const cvUrl = useSetting("cv_url", "/THENG_SEANGHENG_CV.pdf");
+  const cfg = useSettings();
+  const cvUrl = cfg.cv_url || "/THENG_SEANGHENG_CV.pdf";
   // Memoized calculations
   const [stats, setStats] = useState({
     totalProjects: 0,
@@ -134,7 +135,7 @@ const AboutPage = () => {
 
       setStats({
         totalProjects: storedProjects.length,
-        totalCertificates: localCertificates.length,
+        totalCertificates: JSON.parse(localStorage.getItem("certificates") || "null")?.length ?? localCertificates.length,
         YearExperience: 3
       });
     };
@@ -231,7 +232,7 @@ const AboutPage = () => {
                 data-aos-duration="1300"
                 itemProp="name"
               >
-                Theng Seangheng
+                {cfg.about_name || "Theng Seangheng"}
               </span>
             </h2>
             
@@ -240,8 +241,7 @@ const AboutPage = () => {
               data-aos="fade-right"
               data-aos-duration="1500"
             >
-        ខ្ញុំជា Networking Engineer ដែលផ្តោតលើបណ្តាញកុំព្យូទ័រ សុវត្ថិភាពបណ្តាញ និងហេដ្ឋារចនាសម្ព័ន្ធ IT។
-ខ្ញុំតែងតែខិតខំផ្តល់ដំណោះស្រាយល្អបំផុតក្នុងគ្រប់គម្រោងដែលខ្ញុំធ្វើ។
+        {cfg.about_text || "ខ្ញុំជា Networking Engineer ដែលផ្តោតលើបណ្តាញកុំព្យូទ័រ សុវត្ថិភាពបណ្តាញ និងហេដ្ឋារចនាសម្ព័ន្ធ IT។ ខ្ញុំតែងតែខិតខំផ្តល់ដំណោះស្រាយល្អបំផុតក្នុងគ្រប់គម្រោងដែលខ្ញុំធ្វើ។"}
                   </p>
 
                {/* Quote Section */}
@@ -262,7 +262,7 @@ const AboutPage = () => {
         </div>
         
         <blockquote className="text-gray-300 text-center lg:text-left italic font-medium text-sm relative z-10 pl-6">
-          "Leveraging AI as a professional tool, not a replacement."
+          {cfg.about_quote || "Leveraging AI as a professional tool, not a replacement."}
         </blockquote>
       </div>
 
@@ -288,7 +288,7 @@ const AboutPage = () => {
             </div>
           </div>
 
-          <ProfileImage />
+          <ProfileImage src={cfg.profile_image || "/Photo.jpeg"} />
         </div>
 
         <a href="#Portofolio">

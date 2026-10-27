@@ -36,7 +36,7 @@ export async function apiFetch(path, { method = "GET", body, auth = false, signa
 
   if (!json) {
     const hint = text.trim().startsWith("<")
-      ? `The /api request returned HTML instead of JSON. Locally, run "npm run dev:all". On Vercel, make sure the API function and server environment variables are deployed; a static-only deployment cannot process Bakong payments.`
+      ? "The server returned a web page instead of JSON. Is the API server running (npm run dev:all)?"
       : text ? "The server returned an unreadable response." : "The server returned an empty response. Is the API server running (npm run dev:all)?";
     throw new ApiRequestError(`${hint} (HTTP ${res.status})`, { status: res.status, code: "bad_response", network: true });
   }

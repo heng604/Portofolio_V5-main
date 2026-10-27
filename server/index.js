@@ -3,7 +3,6 @@ import helmet from 'helmet';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
-import { pathToFileURL } from 'node:url';
 import { env } from './env.js';
 import { errorHandler, notFoundApi } from './lib/http.js';
 import { router as bakong } from './routes/bakong.js';
@@ -31,12 +30,6 @@ if (env.isProd && fs.existsSync(dist)) {
 
 app.use(errorHandler);
 
-// Export the Express app for serverless hosts (e.g. Vercel) and start a listener
-// only when this file is executed directly by `npm run dev:server` / `npm start`.
-export default app;
-const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (isDirectRun) {
-  app.listen(env.port, () => {
-    console.log(`[server] http://localhost:${env.port}  (bakong=${env.bakong.env}, features=${JSON.stringify(env.features)})`);
-  });
-}
+app.listen(env.port, () => {
+  console.log(`[server] http://localhost:${env.port}  (bakong=${env.bakong.env}, features=${JSON.stringify(env.features)})`);
+});

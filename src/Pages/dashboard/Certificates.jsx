@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from "../../supabase";
-import { Award, Upload, Trash2, ImageIcon, Plus } from 'lucide-react'
+import { Award, Upload, Trash2, ImageIcon, Plus, Download } from 'lucide-react'
+import localCerts from '../../data/certificates'
 
 const Card = ({ children, className = '' }) => (
   <div className={`relative group ${className}`}>
@@ -86,6 +87,13 @@ export default function Certificates() {
     fetchCerts()
   }
 
+  const importBuiltIn = async () => {
+    if (certs.length && !confirm('The table already has certificates. Import the built-in ones anyway?')) return
+    const { error } = await supabase.from('certificates').insert(localCerts.map((c, i) => ({ Img: c.Img, sort_order: i })))
+    if (error) alert(error.message)
+    fetchCerts()
+  }
+
   const deleteCert = async (id) => {
     if (!confirm('Delete this certificate?')) return
     await supabase.from('certificates').delete().eq('id', id)
@@ -109,6 +117,8 @@ export default function Certificates() {
           </p>
         </div>
       </div>
+
+      <button onClick={importBuiltIn} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/15 text-gray-200 text-sm hover:bg-white/5"><Download className="w-4 h-4" />Import built-in certificates</button>
 
       {/* Upload Card */}
       <Card>
@@ -171,7 +181,7 @@ export default function Certificates() {
         <Card>
           <div className="p-16 text-center">
             <Award className="w-10 h-10 text-gray-700 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">No certificates yet.</p>
+            <p className="text-gray-500 text-sm">No certificates in the database yet. The public site shows the built-in ones until you import or upload.</p>
           </div>
         </Card>
       ) : (

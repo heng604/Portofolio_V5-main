@@ -16,6 +16,7 @@ import AOS from "aos";
 import "aos/dist/aos.css";
 import Certificate from "../components/Certificate";
 import localCertificates from "../data/certificates";
+import builtInTechStack from "../data/techStack";
 import { mergeProjects } from "../data/projects";
 import { Code, Award, Boxes } from "lucide-react";
 
@@ -104,61 +105,23 @@ function a11yProps(index) {
   };
 }
 
-const techStackGroups = [
-  {
-    title: "Web Development",
-    items: [
-      { icon: "html.svg", language: "HTML" },
-      { icon: "css.svg", language: "CSS" },
-      { icon: "javascript.svg", language: "JavaScript" },
-      { icon: "tailwind.svg", language: "Tailwind CSS" },
-      { icon: "reactjs.svg", language: "ReactJS" },
-      { icon: "vite.svg", language: "Vite" },
-      { icon: "nodejs.svg", language: "Node JS" },
-      { icon: "bootstrap.svg", language: "Bootstrap" },
-      { icon: "firebase.svg", language: "Firebase" },
-      { icon: "vercel.svg", language: "Vercel" },
-      { icon: "python.svg", language: "Python" },
-      { icon: "git.svg", language: "Git" },
-      { icon: "github.svg", language: "GitHub" },
-    ],
-  },
-  {
-    title: "Cyber Security Tools",
-    items: [
-      { icon: "kalilinux.svg", language: "Kali Linux" },
-      { icon: "nmap.svg", language: "Nmap" },
-      { icon: "wireshark.svg", language: "Wireshark" },
-      { icon: "metasploit.svg", language: "Metasploit" },
-      { icon: "burpsuite.svg", language: "Burp Suite" },
-      { icon: "nessus.svg", language: "Nessus" },
-      { icon: "bash.svg", language: "Bash" },
-      { icon: "powershell.svg", language: "PowerShell" },
-    ],
-  },
-  {
-    title: "Networking Tools & Platforms",
-    items: [
-      { icon: "cisco.svg", language: "Cisco Packet Tracer" },
-      { icon: "gns3.svg", language: "GNS3" },
-      { icon: "mikrotik.svg", language: "MikroTik" },
-      { icon: "pfsense.svg", language: "pfSense" },
-      { icon: "opnsense.svg", language: "OPNsense" },
-      { icon: "openvpn.svg", language: "OpenVPN" },
-      { icon: "cloudflare.svg", language: "Cloudflare" },
-      { icon: "virtualbox.svg", language: "VirtualBox" },
-      { icon: "vmware.svg", language: "VMware" },
-      { icon: "linux.svg", language: "Linux" },
-      { icon: "ubuntu.svg", language: "Ubuntu" },
-    ],
-  },
-];
+// Groups DB rows by category; falls back to the built-in list when the table is empty/unavailable.
+const groupRows = (rows) => {
+  const map = new Map();
+  rows.forEach((r) => {
+    const t = r.category && r.category !== "general" ? r.category : "Tech Stack";
+    if (!map.has(t)) map.set(t, []);
+    map.get(t).push({ icon: r.icon_url || "/vite.svg", language: r.name });
+  });
+  return [...map].map(([title, items]) => ({ title, items }));
+};
 
 export default function FullWidthTabs() {
   const theme = useTheme();
   const [value, setValue] = useState(0);
   const [projects, setProjects] = useState([]);
   const [certificates, setCertificates] = useState(localCertificates);
+  const [techStackGroups, setTechStackGroups] = useState(builtInTechStack);
   const [showAllProjects, setShowAllProjects] = useState(false);
   const [showAllCertificates, setShowAllCertificates] = useState(false);
   const isMobile = window.innerWidth < 768;
@@ -186,7 +149,12 @@ export default function FullWidthTabs() {
 
       // Supabase mengembalikan data dalam properti 'data'
       const projectData = mergeProjects(projectsResponse.data || []);
-      const certificateData = localCertificates;
+      // Certificates + tech stack: database rows win; built-in lists are the fallback when the tables are empty.
+      const certRes = await supabase.from("certificates").select("*").eq("is_published", true).order("sort_order", { ascending: true }).order("id", { ascending: true });
+      const certRows = !certRes.error && certRes.data?.length ? certRes.data : null;
+      const certificateData = certRows ? certRows.map((c) => ({ id: c.id, Img: c.Img, title: c.title })) : localCertificates;
+      const techRes = await supabase.from("tech_stack").select("*").eq("is_published", true).order("sort_order", { ascending: true }).order("id", { ascending: true });
+      if (!techRes.error && techRes.data?.length) setTechStackGroups(groupRows(techRes.data));
 
       setProjects(projectData);
       setCertificates(certificateData);

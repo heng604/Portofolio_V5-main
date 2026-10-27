@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Settings as Cog, Upload, Save, Search } from "lucide-react";
 import { supabase } from "../../supabase";
+import { refreshSettings } from "../../lib/useSetting";
 
 // Every field is stored in public.site_settings as {"text": "..."} and is editable here.
 const FIELDS = [
   ["cv_url", "CV / Resume URL (use the upload button)", "cv"],
-  ["hero_title", "Hero title", "text"], ["hero_subtitle", "Hero subtitle", "text"],
-  ["about_text", "About text", "area"], ["experience_text", "Experience", "area"], ["education_text", "Education", "area"],
-  ["social_telegram", "Telegram link", "text"], ["social_github", "GitHub link", "text"],
+  ["hero_title", "Hero title (e.g. Networking Engineer)", "text"], ["hero_subtitle", "Hero description", "area"],
+  ["hero_words", "Typing words (comma separated)", "text"], ["hero_image", "Hero image / animation", "img"],
+  ["about_name", "Name shown on About", "text"], ["about_text", "About text", "area"], ["about_quote", "About quote", "text"],
+  ["profile_image", "Profile photo", "img"], ["experience_text", "Experience", "area"], ["education_text", "Education", "area"],
+  ["social_telegram", "Telegram link", "text"], ["social_github", "GitHub link", "text"], ["social_facebook", "Facebook link", "text"], ["social_instagram", "Instagram link", "text"],
   ["contact_email", "Contact email", "text"], ["contact_phone", "Contact phone", "text"],
   ["seo_title", "SEO title", "text"], ["seo_description", "SEO description", "area"],
   ["site_name", "Website name", "text"],
 ];
 const MAX_CV = 10 * 1024 * 1024;
+const MAX_IMG = 5 * 1024 * 1024;
 
 export default function Settings() {
   const [vals, setVals] = useState({});
@@ -33,6 +37,7 @@ export default function Settings() {
     setSaving(key); setMsg({ type: "", text: "" });
     const { error } = await supabase.from("site_settings").upsert({ key, value: { text }, is_public: true, updated_at: new Date().toISOString() });
     setSaving("");
+    if (!error) refreshSettings();
     setMsg(error ? { type: "error", text: `Save failed: ${error.message}` } : { type: "ok", text: `Saved "${key}". It is live on the site.` });
   };
 
@@ -47,6 +52,19 @@ export default function Settings() {
     const url = supabase.storage.from("site-files").getPublicUrl(name).data.publicUrl;
     setVals((v) => ({ ...v, cv_url: url }));
     await save("cv_url", url);
+  };
+
+  const uploadImg = async (key, file) => {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) return setMsg({ type: "error", text: "Image must be JPG, PNG, WEBP or GIF." });
+    if (file.size > MAX_IMG) return setMsg({ type: "error", text: "Image must be 5 MB or smaller." });
+    setSaving(key);
+    const name = `${key}-${Date.now()}.${file.type.split("/")[1]}`;
+    const { error } = await supabase.storage.from("site-files").upload(name, file, { contentType: file.type });
+    if (error) { setSaving(""); return setMsg({ type: "error", text: `Upload failed: ${error.message}` }); }
+    const url = supabase.storage.from("site-files").getPublicUrl(name).data.publicUrl;
+    setVals((v) => ({ ...v, [key]: url }));
+    await save(key, url);
   };
 
   const shown = useMemo(() => FIELDS.filter(([k, l]) => `${k} ${l}`.toLowerCase().includes(q.toLowerCase())), [q]);
@@ -73,12 +91,19 @@ export default function Settings() {
                   <input type="file" accept="application/pdf" className="hidden" onChange={(e) => uploadCv(e.target.files?.[0])} />
                 </label>
               )}
+              {kind === "img" && (
+                <label className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/15 text-gray-200 text-sm cursor-pointer hover:bg-white/5">
+                  <Upload className="w-4 h-4" aria-hidden="true" />Upload image
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={(e) => uploadImg(key, e.target.files?.[0])} />
+                </label>
+              )}
+              {kind === "img" && vals[key] && <img src={vals[key]} alt="" className="h-12 w-12 rounded-lg object-cover border border-white/10" />}
               {kind === "cv" && vals.cv_url && <a href={vals.cv_url} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-300 underline">Open current CV</a>}
             </div>
           </div>
         ))}
       </div>
-      <p className="text-xs text-gray-500">Currently the CV link (About page) reads from these settings live. Other fields are stored and editable, but the public pages still show their original built-in text until they are wired to read them.</p>
+      <p className="text-xs text-gray-500">Empty fields fall back to the built-in text, so the site never shows a blank. Saved values go live on the next page load.</p>
     </div>
   );
 }

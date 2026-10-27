@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Boxes, Plus, Trash2, Eye, EyeOff } from "lucide-react";
+import { Boxes, Plus, Trash2, Eye, EyeOff, Download, Upload } from "lucide-react";
+import builtIn from "../../data/techStack";
 import { supabase } from "../../supabase";
 
 export default function TechStack() {
@@ -24,6 +25,23 @@ export default function TechStack() {
     if (error) return setMsg({ type: "error", text: error.message });
     setForm({ name: "", category: "general", icon_url: "" }); setMsg({ type: "ok", text: "Added." }); load();
   };
+  const importBuiltIn = async () => {
+    if (rows.length && !window.confirm("The table already has items. Import the built-in list anyway (may create duplicates)?")) return;
+    const payload = builtIn.flatMap((g, gi) => g.items.map((it, i) => ({ name: it.language, category: g.title, icon_url: `/${it.icon}`, sort_order: gi * 100 + i })));
+    setBusy(true);
+    const { error } = await supabase.from("tech_stack").insert(payload);
+    setBusy(false);
+    setMsg(error ? { type: "error", text: error.message } : { type: "ok", text: `Imported ${payload.length} items. You can now edit/hide/delete each one.` }); load();
+  };
+  const uploadIcon = async (file) => {
+    if (!file) return;
+    if (!["image/png", "image/svg+xml", "image/webp", "image/jpeg"].includes(file.type) || file.size > 2 * 1024 * 1024) return setMsg({ type: "error", text: "Icon must be PNG/SVG/WEBP/JPG up to 2 MB." });
+    const name = `tech-${Date.now()}.${file.type === "image/svg+xml" ? "svg" : file.type.split("/")[1]}`;
+    const { error } = await supabase.storage.from("project-images").upload(name, file, { contentType: file.type });
+    if (error) return setMsg({ type: "error", text: `Upload failed: ${error.message}` });
+    setForm((f) => ({ ...f, icon_url: supabase.storage.from("project-images").getPublicUrl(name).data.publicUrl }));
+    setMsg({ type: "ok", text: "Icon uploaded. Press Add to save the item." });
+  };
   const toggle = async (r) => { const { error } = await supabase.from("tech_stack").update({ is_published: !r.is_published }).eq("id", r.id); if (error) setMsg({ type: "error", text: error.message }); load(); };
   const remove = async (r) => {
     if (!window.confirm(`Delete "${r.name}"?`)) return;
@@ -42,6 +60,10 @@ export default function TechStack() {
         <input aria-label="Icon URL" placeholder="Icon URL (optional)" value={form.icon_url} onChange={(e) => setForm({ ...form, icon_url: e.target.value })} className={cls} />
         <button disabled={busy} className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm"><Plus className="w-4 h-4" aria-hidden="true" />Add</button>
       </form>
+      <div className="flex flex-wrap gap-2">
+        <label className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/15 text-gray-200 text-sm cursor-pointer hover:bg-white/5"><Upload className="w-4 h-4" aria-hidden="true" />Upload icon<input type="file" accept="image/png,image/svg+xml,image/webp,image/jpeg" className="hidden" onChange={(e) => uploadIcon(e.target.files?.[0])} /></label>
+        <button type="button" onClick={importBuiltIn} disabled={busy} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/15 text-gray-200 text-sm hover:bg-white/5 disabled:opacity-50"><Download className="w-4 h-4" aria-hidden="true" />Import built-in stack</button>
+      </div>
       <input aria-label="Search" placeholder="Search..." value={q} onChange={(e) => setQ(e.target.value)} className={`${cls} w-full max-w-sm`} />
       {msg.text && <p role={msg.type === "error" ? "alert" : "status"} className={`p-3 rounded-xl text-sm border ${msg.type === "error" ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-green-500/10 border-green-500/30 text-green-300"}`}>{msg.text}</p>}
       <ul className="space-y-2">
@@ -56,7 +78,7 @@ export default function TechStack() {
         ))}
         {shown.length === 0 && <li className="text-gray-500 text-sm">Nothing yet.</li>}
       </ul>
-      <p className="text-xs text-gray-500">Entries are stored and manageable here; the public Tech Stack grid still shows the original built-in icons until it is wired to this table.</p>
+      <p className="text-xs text-gray-500">The public Tech Stack tab shows these items grouped by Category. While this list is empty it shows the built-in icons; use "Import built-in stack" once to start editing them.</p>
     </div>
   );
 }

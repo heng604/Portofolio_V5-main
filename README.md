@@ -81,13 +81,15 @@ Note: the old `profiles.role` mechanism is no longer used for authorization.
 
 ## 9. Deployment
 `npm run build` then `npm start` (`NODE_ENV=production`): Express serves `dist/` and `/api` from one origin.
-For Vercel, this version includes `api/[...path].js`, a serverless entry point that routes `/api/*` requests to the Express API before the SPA fallback. Configure every variable from `.env.example` in Vercel Project Settings, set `SITE_URL`, and update the Supabase/Google redirect URLs. If your project is configured as static-only or the function is not deployed, host the API on Render / Railway / a VPS and proxy `/api/*` to it; a static-only site cannot verify Bakong payments.
+Use Render / Railway / a VPS (or Docker). **Vercel static hosting alone will not work** for tips/contact/admin (no API);
+`vercel.json` rewrites everything to `index.html`, which is what produces JSON-parse errors on `/api/*` there.
+Set every variable from `.env.example` in the host's environment settings, set `SITE_URL`, and update the Supabase/Google redirect URLs.
 
 ## 10. Troubleshooting
 | Symptom | Cause / fix |
 |---|---|
 | `Unexpected end of JSON input` / "returned an empty response" | API server not running or proxy cannot reach it: run `npm run dev:all`; check port 8787 |
-| "returned a web page instead of JSON" | API function is not deployed or `/api` is rewritten to the SPA; check Vercel Functions and server environment variables, or host the API on Render / Railway / a VPS |
+| "returned a web page instead of JSON" | `/api` is being served by a static host (see Deployment) |
 | `bakong_auth` | Token wrong/expired, or server IP blocked by Bakong |
 | `bakong_bad_response` | Bakong returned empty/non-JSON (usually IP block) |
 | Server exits at start | Read the `[env]` message: missing/partial variables |
@@ -105,11 +107,18 @@ and DB-overridable translations; Spotify project card pointing at `heng604/Spoti
 **Also implemented (second pass):** dashboard pages *Site settings & CV* (CV PDF upload to storage, validated type/size, live download link on the About page; plus
 hero/about/experience/education/social/contact/SEO text fields), *Tech stack* (add/publish/delete/search), *Translations* (EN/ខ្មែរ overrides, live on reload).
 
+**Also implemented (third pass - public pages now read the dashboard):**
+- Home: hero title, description, typing words, hero image, GitHub/Facebook/Instagram links, SEO title/description.
+- About: name, about text, quote, profile photo, CV (all from Site settings). Image fields have an upload button.
+- Certificates (public) read the `certificates` table (published, ordered); Tech stack (public) reads `tech_stack` grouped by Category.
+  While a table is empty the site shows the built-in list; use **Import built-in certificates / Import built-in stack** once in the
+  dashboard to copy them into the database, then edit, hide or delete each item. Icon upload added to Tech stack.
+- Empty setting = built-in default, so the site never goes blank.
+
 **NOT done / partial:**
-- Only the CV link on the About page reads from `site_settings` today. The other settings fields and the Tech stack table are stored and editable, but the public Home/About/Tech Stack still render their original built-in content.
-- The public Certificates section still reads `src/data/certificates.js`, not the database.
+- Experience / education / contact-phone / contact-email / Telegram settings are stored and editable, but no public section renders them yet (the original site has none).
 - Khmer/English translation covers navigation, contact, tip, footer, login and 404 strings only.
-- Dashboard sidebar labels are English only; no drag-and-drop uploader (the file picker + bucket size/MIME limits are used).
+- Dashboard sidebar labels are English only; no drag-and-drop for tech stack/certificate ordering (sort_order is set on import/insert).
 
 **NOT tested (no network in the build environment):** `npm install`, lint, build, unit tests, Supabase, Google OAuth, Resend delivery, and any
 Bakong call - including a live transaction. Nothing here claims a verified live payment. Run the checklist in section 8 on your machine.
