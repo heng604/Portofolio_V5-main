@@ -85,6 +85,17 @@ Use Render / Railway / a VPS (or Docker). **Vercel static hosting alone will not
 `vercel.json` rewrites everything to `index.html`, which is what produces JSON-parse errors on `/api/*` there.
 Set every variable from `.env.example` in the host's environment settings, set `SITE_URL`, and update the Supabase/Google redirect URLs.
 
+## 9b. Vercel (one deploy, no separate server)
+`api/index.js` runs the same Express app as a Vercel function and `vercel.json` routes `/api/*` to it, so a normal Vercel deploy now serves the site AND the API.
+1. Import the repo in Vercel; add every variable from `.env.example` in Project -> Settings -> Environment Variables (SITE_URL is optional on Vercel).
+   Required for tips: `BAKONG_ACCOUNT_ID`, `BAKONG_MERCHANT_NAME`. Required for the success popup: `BAKONG_API_TOKEN`.
+   Required for payment tracking on serverless: `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (in-memory storage is lost between function calls).
+   Required for the dashboard: `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (these are baked in at build time: **redeploy after adding them**).
+2. Open `https://YOUR-SITE/api/health`. You must see JSON. If you see a web page or an error, the variables above are missing or the deploy is old.
+3. Admin login no longer depends on the API: after Google sign-in the browser asks Supabase `is_admin()`. If it is false for `Seangheng2006@gmail.com`,
+   re-run `supabase/schema.sql` (the function was changed), and make sure the Google provider returns a verified email.
+4. The Bakong verification API can reject servers outside Cambodia. The QR is always generated; if the success popup never appears, check `/api/admin/payments` logs for `bakong_auth`.
+
 ## 10. Troubleshooting
 | Symptom | Cause / fix |
 |---|---|

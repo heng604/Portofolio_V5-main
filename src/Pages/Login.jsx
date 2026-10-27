@@ -8,7 +8,7 @@ import { useLang } from "../lib/i18n";
 export default function Login() {
   const navigate = useNavigate();
   const { t } = useLang();
-  const { loading, authenticated, isAdmin } = useAdminStatus();
+  const { loading, authenticated, isAdmin, email, error: adminError } = useAdminStatus();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -39,7 +39,8 @@ export default function Login() {
 
           {!loading && authenticated && !isAdmin ? (
             <div className="space-y-3">
-              <p role="alert" className="text-sm text-red-300">This Google account is not authorized for the dashboard.</p>
+              <p role="alert" className="text-sm text-red-300">This Google account{email ? ` (${email})` : ""} is not authorized for the dashboard.</p>
+              {adminError && <p className="text-xs text-amber-300">Could not verify admin status: {adminError}. If this is the admin email, run supabase/schema.sql again in the Supabase SQL editor.</p>}
               <button onClick={signOut} className="w-full py-3 rounded-xl border border-white/15 text-gray-200 hover:bg-white/5">Sign out</button>
             </div>
           ) : (

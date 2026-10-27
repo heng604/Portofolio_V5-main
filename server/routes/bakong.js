@@ -35,7 +35,7 @@ router.get('/config', (req, res) => {
     ok: true, enabled: env.features.bakong, environment: env.bakong.env,
     currencies: ['USD', 'KHR'], recipient: recipient(),
     limits: { USD: { min: 0.01, max: 1000 }, KHR: { min: 100, max: 4000000 } },
-    persistent: store.usingDatabase(),
+    persistent: store.usingDatabase(), verification: env.bakongVerify,
   });
 });
 
@@ -65,6 +65,7 @@ router.get('/status/:id', requireBakong, limiter(40), asyncRoute(async (req, res
   if (!p) throw new ApiError(404, 'Payment not found.', 'not_found');
   if (p.status !== 'pending') return res.json({ ok: true, payment: publicView(p) });
 
+  if (!env.bakongVerify) return res.json({ ok: true, verification: false, payment: publicView(p) }); // no API token: QR works, auto-confirm cannot
   const now = Date.now();
   if (now - (lastCheck.get(p.id) || 0) < MIN_CHECK_GAP_MS) return res.json({ ok: true, payment: publicView(p) });
   lastCheck.set(p.id, now);

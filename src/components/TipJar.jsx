@@ -94,7 +94,7 @@ export default function TipJar({ preset = null, simulate = null, onPaymentCreate
     let alive = true;
     apiFetch("/api/bakong/config")
       .then((c) => alive && setCfg(c))
-      .catch((e) => alive && setCfg({ enabled: false, error: e.message }));
+      .catch((e) => alive && setCfg({ enabled: true, offline: e.message, currencies: ["USD", "KHR"], limits: { USD: { min: 0.01, max: 1000 }, KHR: { min: 100, max: 4000000 } }, recipient: null }));
     return () => { alive = false; };
   }, []);
 
@@ -186,6 +186,8 @@ export default function TipJar({ preset = null, simulate = null, onPaymentCreate
               </select>
             </div>
           </div>
+          {cfg.offline && <p role="alert" className="text-xs text-amber-700">{cfg.offline}</p>}
+          {cfg.verification === false && <p className="text-xs text-amber-700">Payment auto-detection is not set up on the server yet (BAKONG_API_TOKEN), so the success popup will not appear automatically.</p>}
           {lim && <p className="text-xs text-gray-400">{lim.min} - {Number(lim.max).toLocaleString("en-US")} {currency}</p>}
           {formError && <p role="alert" className="text-sm text-red-600">{formError}</p>}
           <button type="submit" disabled={busy} className="w-full py-3 rounded-xl bg-[#e1232e] hover:bg-[#c81d27] disabled:opacity-60 text-white font-bold flex items-center justify-center gap-2">
