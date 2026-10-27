@@ -126,8 +126,11 @@ hero/about/experience/education/social/contact/SEO text fields), *Tech stack* (a
   dashboard to copy them into the database, then edit, hide or delete each item. Icon upload added to Tech stack.
 - Empty setting = built-in default, so the site never goes blank.
 
+**Fourth pass:** dashboard Overview page; grouped Site settings (General, Home, About, About stats, Portfolio, Contact & footer) now control every
+heading, button, tab, stat label, experience/education block (shown only when filled), contact info in the footer and footer name.
+
 **NOT done / partial:**
-- Experience / education / contact-phone / contact-email / Telegram settings are stored and editable, but no public section renders them yet (the original site has none).
+- Navbar menu labels and the tip section text are edited in Dashboard -> Translations (not Site settings).
 - Khmer/English translation covers navigation, contact, tip, footer, login and 404 strings only.
 - Dashboard sidebar labels are English only; no drag-and-drop for tech stack/certificate ordering (sort_order is set on import/insert).
 

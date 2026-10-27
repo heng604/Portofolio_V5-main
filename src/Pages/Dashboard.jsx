@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase'
+import Overview from './dashboard/Overview'
 import Projects from './dashboard/Projects'
 import Certificates from './dashboard/Certificates'
 import Comments from './dashboard/Comments'
@@ -12,6 +13,7 @@ import Translations from './dashboard/Translations'
 import { FolderGit2, Award, MessageSquare, LogOut, LayoutDashboard, Menu, QrCode, Mail, Settings as SettingsIcon, Boxes, Languages } from 'lucide-react'
 
 const NAV_ITEMS = [
+  { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { to: 'projects', label: 'Projects', icon: FolderGit2 },
   { to: 'certificates', label: 'Certificates', icon: Award },
   { to: 'comments', label: 'Comments', icon: MessageSquare },
@@ -58,7 +60,7 @@ export default function Dashboard() {
       <nav className="flex flex-col gap-1 flex-1 min-h-0">
         <p className="text-[10px] text-gray-600 uppercase tracking-widest px-3 mb-2 shrink-0">Menu</p>
         {NAV_ITEMS.map(({ to, label, icon: Icon }) => {
-          const active = location.pathname.includes(to)
+          const active = to === '/dashboard' ? location.pathname.replace(/\/$/, '') === '/dashboard' : location.pathname.includes(to)
           return (
             <Link
               key={to}
@@ -133,7 +135,7 @@ export default function Dashboard() {
         {/* Hanya main yang overflow-y-auto — scrollbar bisa diklik normal */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           <Routes>
-            <Route index element={<Navigate to="projects" replace />} />
+            <Route index element={<Overview />} />
             <Route path="projects" element={<Projects />} />
             <Route path="certificates" element={<Certificates />} />
             <Route path="comments" element={<Comments />} />

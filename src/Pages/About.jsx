@@ -6,7 +6,7 @@ import AOS from 'aos'
 import 'aos/dist/aos.css'
 
 // Memoized Components
-const Header = memo(() => (
+const Header = memo(({ title = "About Me", subtitle = "Transforming ideas into digital experiences" }) => (
   <div className="text-center lg:mb-8 mb-2 px-[5%]">
     <div className="inline-block relative group">
       <h2 
@@ -14,7 +14,7 @@ const Header = memo(() => (
         data-aos="zoom-in-up"
         data-aos-duration="600"
       >
-        About Me
+        {title}
       </h2>
     </div>
     <p 
@@ -23,7 +23,7 @@ const Header = memo(() => (
       data-aos-duration="800"
     >
       <Sparkles className="w-5 h-5 text-purple-400" />
-      Transforming ideas into digital experiences
+      {subtitle}
       <Sparkles className="w-5 h-5 text-purple-400" />
     </p>
   </div>
@@ -136,7 +136,7 @@ const AboutPage = () => {
       setStats({
         totalProjects: storedProjects.length,
         totalCertificates: JSON.parse(localStorage.getItem("certificates") || "null")?.length ?? localCertificates.length,
-        YearExperience: 3
+        YearExperience: Number(cfg.stat_exp_value) || 3
       });
     };
 
@@ -149,7 +149,7 @@ const AboutPage = () => {
       window.removeEventListener('storage', updateStats);
       window.removeEventListener('portfolioDataUpdated', updateStats);
     };
-  }, []);
+  }, [cfg.stat_exp_value]);
 
   const { totalProjects, totalCertificates, YearExperience } = stats;
 
@@ -183,27 +183,27 @@ const AboutPage = () => {
       icon: Code,
       color: "from-[#6366f1] to-[#a855f7]",
       value: totalProjects,
-      label: "Total Projects",
-      description: "Innovative web solutions crafted",
+      label: cfg.stat_projects_label || "Total Projects",
+      description: cfg.stat_projects_desc || "Innovative web solutions crafted",
       animation: "fade-right",
     },
     {
       icon: Award,
       color: "from-[#a855f7] to-[#6366f1]",
       value: totalCertificates,
-      label: "Certificates",
-      description: "Professional skills validated",
+      label: cfg.stat_certs_label || "Certificates",
+      description: cfg.stat_certs_desc || "Professional skills validated",
       animation: "fade-up",
     },
     {
       icon: Globe,
       color: "from-[#6366f1] to-[#a855f7]",
       value: YearExperience,
-      label: "Months of Experience",
-      description: "Continuous learning journey",
+      label: cfg.stat_exp_label || "Months of Experience",
+      description: cfg.stat_exp_desc || "Continuous learning journey",
       animation: "fade-left",
     },
-  ], [totalProjects, totalCertificates, YearExperience]);
+  ], [totalProjects, totalCertificates, YearExperience, cfg]);
 
   return (
     <div
@@ -213,7 +213,7 @@ const AboutPage = () => {
   itemType="https://schema.org/Person"
 
     >
-      <Header />
+      <Header title={cfg.about_title || "About Me"} subtitle={cfg.about_subtitle || "Transforming ideas into digital experiences"} />
 
       <div className="w-full mx-auto pt-8 sm:pt-12 relative">
         <div className="flex flex-col-reverse lg:grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
@@ -290,6 +290,23 @@ const AboutPage = () => {
 
           <ProfileImage src={cfg.profile_image || "/Photo.jpeg"} />
         </div>
+
+        {(cfg.experience_text || cfg.education_text) && (
+          <div className="grid gap-6 md:grid-cols-2 mt-12">
+            {cfg.experience_text && (
+              <div className="bg-gray-900/50 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
+                <h3 className="text-xl font-semibold text-white mb-3">{cfg.experience_title || "Experience"}</h3>
+                <p className="text-gray-400 whitespace-pre-line leading-relaxed">{cfg.experience_text}</p>
+              </div>
+            )}
+            {cfg.education_text && (
+              <div className="bg-gray-900/50 backdrop-blur-lg rounded-2xl p-6 border border-white/10">
+                <h3 className="text-xl font-semibold text-white mb-3">{cfg.education_title || "Education"}</h3>
+                <p className="text-gray-400 whitespace-pre-line leading-relaxed">{cfg.education_text}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         <a href="#Portofolio">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16 cursor-pointer">

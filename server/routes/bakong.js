@@ -45,11 +45,17 @@ export async function createPayment({ amount, currency, isTest = false }) {
   const expiresAtMs = now + env.bakong.qrTtlSeconds * 1000;
   const billNumber = `TIP-${id.slice(0, 8).toUpperCase()}`;
   const { qr, md5 } = generateKhqr({ amount, currency, billNumber, expiresAtMs });
-  const row = await store.insertPayment({
+  let row;
+  try {
+    row = await store.insertPayment({
     id, md5, qr, amount, currency, recipient_account: env.bakong.accountId, bill_number: billNumber,
     status: 'pending', is_test: isTest, environment: env.bakong.env,
     created_at: new Date(now).toISOString(), expires_at: new Date(expiresAtMs).toISOString(),
-  });
+    });
+  } catch (e) {
+    console.error('[bakong] saving payment failed:', e);
+    throw new ApiError(500, `QR was generated but the payment could not be saved: ${e?.message || 'database error'}. Run supabase/schema.sql (creates the payments table) and check SUPABASE_SERVICE_ROLE_KEY.`, 'store_failed');
+  }
   return row;
 }
 

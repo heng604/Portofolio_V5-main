@@ -13,7 +13,7 @@ export default function Login() {
   const [error, setError] = useState("");
 
   // Already signed in as admin -> straight to the dashboard.
-  useEffect(() => { if (!loading && isAdmin) navigate("/dashboard/projects", { replace: true }); }, [loading, isAdmin, navigate]);
+  useEffect(() => { if (!loading && isAdmin) navigate("/dashboard", { replace: true }); }, [loading, isAdmin, navigate]);
 
   const signIn = async () => {
     setBusy(true); setError("");

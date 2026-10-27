@@ -16,6 +16,7 @@ import AOS from "aos";
 import "aos/dist/aos.css";
 import Certificate from "../components/Certificate";
 import localCertificates from "../data/certificates";
+import { useSettings } from "../lib/useSetting";
 import builtInTechStack from "../data/techStack";
 import { mergeProjects } from "../data/projects";
 import { Code, Award, Boxes } from "lucide-react";
@@ -117,6 +118,7 @@ const groupRows = (rows) => {
 };
 
 export default function FullWidthTabs() {
+  const cfg = useSettings();
   const theme = useTheme();
   const [value, setValue] = useState(0);
   const [projects, setProjects] = useState([]);
@@ -216,12 +218,11 @@ export default function FullWidthTabs() {
             backgroundClip: 'text',
             WebkitTextFillColor: 'transparent'
           }}>
-            Portfolio Showcase
+            {cfg.portfolio_title || "Portfolio Showcase"}
           </span>
         </h2>
         <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-base mt-2">
-          Explore my journey through projects, certifications, and technical expertise. 
-          Each section represents a milestone in my continuous learning path.
+          {cfg.portfolio_subtitle || "Explore my journey through projects, certifications, and technical expertise. Each section represents a milestone in my continuous learning path."}
         </p>
       </div>
 
@@ -296,17 +297,17 @@ export default function FullWidthTabs() {
           >
             <Tab
               icon={<Code className="mb-2 w-5 h-5 transition-all duration-300" />}
-              label="Projects"
+              label={cfg.tab_projects || "Projects"}
               {...a11yProps(0)}
             />
             <Tab
               icon={<Award className="mb-2 w-5 h-5 transition-all duration-300" />}
-              label="Certificates"
+              label={cfg.tab_certs || "Certificates"}
               {...a11yProps(1)}
             />
             <Tab
               icon={<Boxes className="mb-2 w-5 h-5 transition-all duration-300" />}
-              label="Tech Stack"
+              label={cfg.tab_tech || "Tech Stack"}
               {...a11yProps(2)}
             />
           </Tabs>

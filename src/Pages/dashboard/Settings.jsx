@@ -5,15 +5,26 @@ import { refreshSettings } from "../../lib/useSetting";
 
 // Every field is stored in public.site_settings as {"text": "..."} and is editable here.
 const FIELDS = [
-  ["cv_url", "CV / Resume URL (use the upload button)", "cv"],
-  ["hero_title", "Hero title (e.g. Networking Engineer)", "text"], ["hero_subtitle", "Hero description", "area"],
-  ["hero_words", "Typing words (comma separated)", "text"], ["hero_image", "Hero image / animation", "img"],
-  ["about_name", "Name shown on About", "text"], ["about_text", "About text", "area"], ["about_quote", "About quote", "text"],
-  ["profile_image", "Profile photo", "img"], ["experience_text", "Experience", "area"], ["education_text", "Education", "area"],
-  ["social_telegram", "Telegram link", "text"], ["social_github", "GitHub link", "text"], ["social_facebook", "Facebook link", "text"], ["social_instagram", "Instagram link", "text"],
-  ["contact_email", "Contact email", "text"], ["contact_phone", "Contact phone", "text"],
-  ["seo_title", "SEO title", "text"], ["seo_description", "SEO description", "area"],
-  ["site_name", "Website name", "text"],
+  // [key, label, kind, group]
+  ["site_name", "Website name", "text", "General"], ["seo_title", "SEO title", "text", "General"], ["seo_description", "SEO description", "area", "General"],
+  ["cv_url", "CV / Resume (use the upload button)", "cv", "General"],
+  ["hero_title", "Hero title (e.g. Networking Engineer)", "text", "Home"], ["hero_subtitle", "Hero description", "area", "Home"],
+  ["hero_words", "Typing words (comma separated)", "text", "Home"], ["hero_image", "Hero image / animation", "img", "Home"],
+  ["home_badge", "Badge text (Ready to Innovate)", "text", "Home"], ["home_btn_projects", "Button: Projects", "text", "Home"], ["home_btn_contact", "Button: Contact", "text", "Home"],
+  ["social_github", "GitHub link", "text", "Home"], ["social_facebook", "Facebook link", "text", "Home"], ["social_instagram", "Instagram link", "text", "Home"],
+  ["about_title", "Section title (About Me)", "text", "About"], ["about_subtitle", "Section subtitle", "text", "About"],
+  ["about_name", "Name shown on About", "text", "About"], ["about_text", "About text", "area", "About"], ["about_quote", "About quote", "text", "About"],
+  ["profile_image", "Profile photo", "img", "About"],
+  ["experience_title", "Experience heading", "text", "About"], ["experience_text", "Experience (blank = hidden)", "area", "About"],
+  ["education_title", "Education heading", "text", "About"], ["education_text", "Education (blank = hidden)", "area", "About"],
+  ["stat_projects_label", "Stat 1 label", "text", "About stats"], ["stat_projects_desc", "Stat 1 description", "text", "About stats"],
+  ["stat_certs_label", "Stat 2 label", "text", "About stats"], ["stat_certs_desc", "Stat 2 description", "text", "About stats"],
+  ["stat_exp_value", "Stat 3 number (months)", "text", "About stats"], ["stat_exp_label", "Stat 3 label", "text", "About stats"], ["stat_exp_desc", "Stat 3 description", "text", "About stats"],
+  ["portfolio_title", "Section title (Portfolio Showcase)", "text", "Portfolio"], ["portfolio_subtitle", "Section description", "area", "Portfolio"],
+  ["tab_projects", "Tab: Projects", "text", "Portfolio"], ["tab_certs", "Tab: Certificates", "text", "Portfolio"], ["tab_tech", "Tab: Tech Stack", "text", "Portfolio"],
+  ["contact_title", "Contact title", "text", "Contact & footer"], ["contact_subtitle", "Contact description", "area", "Contact & footer"],
+  ["contact_email", "Contact email (shown in footer)", "text", "Contact & footer"], ["contact_phone", "Contact phone (shown in footer)", "text", "Contact & footer"],
+  ["social_telegram", "Telegram link (shown in footer)", "text", "Contact & footer"], ["footer_name", "Footer name", "text", "Contact & footer"],
 ];
 const MAX_CV = 10 * 1024 * 1024;
 const MAX_IMG = 5 * 1024 * 1024;
@@ -67,7 +78,7 @@ export default function Settings() {
     await save(key, url);
   };
 
-  const shown = useMemo(() => FIELDS.filter(([k, l]) => `${k} ${l}`.toLowerCase().includes(q.toLowerCase())), [q]);
+  const shown = useMemo(() => FIELDS.filter(([k, l, , g]) => `${k} ${l} ${g}`.toLowerCase().includes(q.toLowerCase())), [q]);
   const cls = "w-full bg-[#0d0d22] border border-white/10 rounded-xl px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500/60";
 
   return (
@@ -78,8 +89,9 @@ export default function Settings() {
       {msg.text && <p role={msg.type === "error" ? "alert" : "status"} className={`p-3 rounded-xl text-sm border ${msg.type === "error" ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-green-500/10 border-green-500/30 text-green-300"}`}>{msg.text}</p>}
       {loading && <p className="text-gray-500 text-sm">Loading...</p>}
       <div className="grid gap-4">
-        {shown.map(([key, label, kind]) => (
+        {shown.map(([key, label, kind, group], idx) => (
           <div key={key} className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
+            {(idx === 0 || shown[idx - 1][3] !== group) && <h2 className="text-sm font-semibold text-white pt-2">{group}</h2>}
             <label htmlFor={key} className="text-xs text-indigo-300/70 uppercase tracking-wider font-medium">{label}</label>
             {kind === "area" ? <textarea id={key} rows={4} className={cls} value={vals[key] || ""} onChange={(e) => setVals((v) => ({ ...v, [key]: e.target.value }))} />
               : <input id={key} className={cls} value={vals[key] || ""} onChange={(e) => setVals((v) => ({ ...v, [key]: e.target.value }))} />}

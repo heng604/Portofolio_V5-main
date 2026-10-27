@@ -8,8 +8,10 @@ import AOS from "aos";
 import "aos/dist/aos.css";
 import { apiFetch } from "../lib/api";
 import { useLang } from "../lib/i18n";
+import { useSettings } from "../lib/useSetting";
 
 const ContactPage = () => {
+  const cfg = useSettings();
   const { t } = useLang();
   const [formData, setFormData] = useState({
     name: "",
@@ -106,10 +108,10 @@ const ContactPage = () => {
             <div className="flex justify-between items-start mb-8">
               <div>
                 <h2 className="text-4xl font-bold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-[#6366f1] to-[#a855f7]">
-                  ទាក់ទង
+                  {cfg.contact_title || "ទាក់ទង"}
                 </h2>
                 <p className="text-gray-400">
-                  មានអ្វីចង់ពិភាក្សាទេ? សូមផ្ញើសារមកខ្ញុំ ហើយតោះនិយាយគ្នា។
+                  {cfg.contact_subtitle || "មានអ្វីចង់ពិភាក្សាទេ? សូមផ្ញើសារមកខ្ញុំ ហើយតោះនិយាយគ្នា។"}
                 </p>
               </div>
               <Share2 className="w-10 h-10 text-[#6366f1] opacity-50" />

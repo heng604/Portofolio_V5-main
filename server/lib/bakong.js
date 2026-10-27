@@ -29,16 +29,22 @@ export function parseAmount(rawAmount, rawCurrency) {
 }
 
 export function generateKhqr({ amount, currency, billNumber, expiresAtMs }) {
-  const info = new IndividualInfo(env.bakong.accountId, env.bakong.merchantName, env.bakong.merchantCity, {
-    currency: LIMITS[currency].code(),
-    amount,
-    billNumber,
-    expirationTimestamp: expiresAtMs, // required by the library for dynamic (amount) QR
-  });
-  const result = new BakongKHQR().generateIndividual(info);
+  let result;
+  try {
+    const info = new IndividualInfo(env.bakong.accountId, env.bakong.merchantName, env.bakong.merchantCity, {
+      currency: LIMITS[currency].code(),
+      amount,
+      billNumber,
+      expirationTimestamp: expiresAtMs, // required by the library for dynamic (amount) QR
+    });
+    result = new BakongKHQR().generateIndividual(info);
+  } catch (e) {
+    console.error('[bakong] KHQR generation threw:', e);
+    throw new ApiError(502, `Could not generate the KHQR: ${e?.message || e?.status?.message || 'invalid Bakong account ID / merchant details'}. Check BAKONG_ACCOUNT_ID (format name@bank), BAKONG_MERCHANT_NAME and BAKONG_MERCHANT_CITY.`, 'khqr_failed');
+  }
   if (!result || result.status?.code !== 0 || !result.data?.qr || !result.data?.md5) {
     console.error('[bakong] KHQR generation failed:', result?.status);
-    throw new ApiError(502, 'Could not generate the KHQR code.', 'khqr_failed');
+    throw new ApiError(502, `Could not generate the KHQR: ${result?.status?.message || 'unknown reason'}. Check BAKONG_ACCOUNT_ID (format name@bank) and merchant name/city.`, 'khqr_failed');
   }
   return { qr: result.data.qr, md5: result.data.md5 };
 }
