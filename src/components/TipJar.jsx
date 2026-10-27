@@ -105,23 +105,23 @@ export default function TipJar({ preset = null, simulate = null, onPaymentCreate
     let timer;
     const poll = async () => {
       try {
-        const { payment: p } = await apiFetch(`/api/bakong/status/${payment.id}`);
+        const { payment: p } = await apiFetch("/api/bakong/check", { method: "POST", body: { token: payment.token } });
         if (stopped) return;
         netErrors.current = 0; setNetWarn(false);
-        setPayment((cur) => ({ ...cur, ...p, qr: p.qr || cur.qr }));
+        setPayment((cur) => ({ ...cur, ...p, qr: p.qr || cur.qr, token: cur.token }));
         if (p.status === "confirmed") { setShowOk(true); return; }
         if (p.status !== "pending") return;
       } catch (e) {
         if (stopped) return;
         netErrors.current += 1;
         if (netErrors.current >= MAX_NET_ERRORS_BEFORE_WARN) setNetWarn(true);
-        if (e.status === 404) { setFormError(e.message); setPayment(null); return; }
+        if (e.status === 404 || e.code === "bad_token") { setFormError(e.message); setPayment(null); return; }
       }
       timer = setTimeout(poll, POLL_MS + Math.min(netErrors.current, 5) * 2000); // gentle backoff
     };
     timer = setTimeout(poll, POLL_MS);
     return () => { stopped = true; clearTimeout(timer); };
-  }, [payment?.id, payment?.status, simulate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [payment?.id, payment?.token, payment?.status, simulate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const generate = useCallback(async (e) => {
     e.preventDefault();
@@ -142,7 +142,7 @@ export default function TipJar({ preset = null, simulate = null, onPaymentCreate
   }, [amount, currency, onPaymentCreated, t]);
 
   const cancel = async () => {
-    try { const { payment: p } = await apiFetch(`/api/bakong/cancel/${payment.id}`, { method: "POST" }); setPayment((c) => ({ ...c, ...p })); }
+    try { const { payment: p } = await apiFetch("/api/bakong/cancel", { method: "POST", body: { token: payment.token } }); setPayment((c) => ({ ...c, ...p })); }
     catch (err) { setFormError(err.message); }
   };
   const reset = () => { setPayment(null); setAmount(""); setFormError(""); setNetWarn(false); setShowOk(false); };

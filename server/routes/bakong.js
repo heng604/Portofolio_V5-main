@@ -5,6 +5,7 @@ import { env } from '../env.js';
 import { ApiError, asyncRoute } from '../lib/http.js';
 import { parseAmount, generateKhqr, checkTransactionByMd5, matchesPayment } from '../lib/bakong.js';
 import * as store from '../lib/store.js';
+import { signPayment, verifyPayment } from '../lib/token.js';
 
 export const router = Router();
 
@@ -24,7 +25,7 @@ const MIN_CHECK_GAP_MS = 3000;
 const recipient = () => ({ name: env.bakong.merchantName, city: env.bakong.merchantCity });
 
 const publicView = (p) => ({
-  id: p.id, status: p.status, amount: Number(p.amount), currency: p.currency,
+  id: p.id, token: p.token, status: p.status, amount: Number(p.amount), currency: p.currency,
   qr: p.status === 'pending' ? p.qr : undefined,
   expiresAt: p.expires_at, confirmedAt: p.confirmed_at || null,
   isTest: !!p.is_test, environment: p.environment, recipient: recipient(),
@@ -45,17 +46,15 @@ export async function createPayment({ amount, currency, isTest = false }) {
   const expiresAtMs = now + env.bakong.qrTtlSeconds * 1000;
   const billNumber = `TIP-${id.slice(0, 8).toUpperCase()}`;
   const { qr, md5 } = generateKhqr({ amount, currency, billNumber, expiresAtMs });
-  let row;
-  try {
-    row = await store.insertPayment({
+  const row = {
     id, md5, qr, amount, currency, recipient_account: env.bakong.accountId, bill_number: billNumber,
     status: 'pending', is_test: isTest, environment: env.bakong.env,
     created_at: new Date(now).toISOString(), expires_at: new Date(expiresAtMs).toISOString(),
-    });
-  } catch (e) {
-    console.error('[bakong] saving payment failed:', e);
-    throw new ApiError(500, `QR was generated but the payment could not be saved: ${e?.message || 'database error'}. Run supabase/schema.sql (creates the payments table) and check SUPABASE_SERVICE_ROLE_KEY.`, 'store_failed');
-  }
+  };
+  // The database is only a log now. If Supabase is down/misconfigured the QR still works.
+  try { await store.insertPayment(row); }
+  catch (e) { console.error('[bakong] payment log not saved (continuing):', e?.message || e); }
+  row.token = signPayment({ id, md5, amount, currency, acct: env.bakong.accountId, exp: expiresAtMs });
   return row;
 }
 
@@ -65,47 +64,32 @@ router.post('/create', requireBakong, limiter(10), asyncRoute(async (req, res) =
   res.status(201).json({ ok: true, payment: publicView(row) });
 }));
 
-router.get('/status/:id', requireBakong, limiter(40), asyncRoute(async (req, res) => {
-  if (!UUID.test(req.params.id)) throw new ApiError(400, 'Invalid payment id.', 'bad_id');
-  let p = await store.getPayment(req.params.id);
-  if (!p) throw new ApiError(404, 'Payment not found.', 'not_found');
-  if (p.status !== 'pending') return res.json({ ok: true, payment: publicView(p) });
-
-  if (!env.bakongVerify) return res.json({ ok: true, verification: false, payment: publicView(p) }); // no API token: QR works, auto-confirm cannot
+// Stateless check: the signed token carries amount/currency/md5. We ask Bakong whether that md5 was paid.
+router.post('/check', requireBakong, limiter(40), asyncRoute(async (req, res) => {
+  const t = verifyPayment(req.body?.token);
+  const view = (status, extra = {}) => res.json({ ok: true, payment: { id: t.id, status, amount: t.amount, currency: t.currency, expiresAt: new Date(t.exp).toISOString(), ...extra } });
   const now = Date.now();
-  if (now - (lastCheck.get(p.id) || 0) < MIN_CHECK_GAP_MS) return res.json({ ok: true, payment: publicView(p) });
-  lastCheck.set(p.id, now);
+  if (!env.bakongVerify) return res.json({ ok: true, verification: false, payment: { id: t.id, status: now > t.exp ? 'expired' : 'pending', amount: t.amount, currency: t.currency, expiresAt: new Date(t.exp).toISOString() } });
 
-  // Ask Bakong first: a payment made just before expiry must still be honoured.
-  const result = await checkTransactionByMd5(p.md5);
+  if (now - (lastCheck.get(t.id) || 0) < MIN_CHECK_GAP_MS) return view(now > t.exp ? 'expired' : 'pending');
+  lastCheck.set(t.id, now);
+
+  const result = await checkTransactionByMd5(t.md5);
   if (result.found) {
-    const txn = result.txn;
-    const m = matchesPayment(txn, p);
+    const m = matchesPayment(result.txn, { amount: t.amount, currency: t.currency });
     if (!m.ok) {
-      // Money arrived but does not match what was requested: never mark as success.
-      p = await store.updatePayment(p.id, { status: 'failed', failure_reason: `mismatch account:${m.sameAccount} currency:${m.sameCurrency} amount:${m.sameAmount}`, txn_hash: txn.hash || null });
-      return res.json({ ok: true, payment: publicView(p) });
+      store.updatePayment(t.id, { status: 'failed', failure_reason: 'mismatch' }).catch(() => {});
+      return view('failed');
     }
-    const dup = txn.hash ? await store.findByTxnHash(txn.hash) : null;
-    if (dup && dup.id !== p.id) {
-      p = await store.updatePayment(p.id, { status: 'failed', failure_reason: 'duplicate_transaction' });
-      return res.json({ ok: true, payment: publicView(p) });
-    }
-    p = await store.updatePayment(p.id, {
-      status: 'confirmed', txn_hash: txn.hash || null, payer_account: txn.fromAccountId || null,
-      confirmed_at: new Date().toISOString(),
-    });
-  } else if (new Date(p.expires_at).getTime() < now) {
-    p = await store.updatePayment(p.id, { status: 'expired' });
+    const confirmedAt = new Date().toISOString();
+    store.updatePayment(t.id, { status: 'confirmed', txn_hash: result.txn.hash || null, payer_account: result.txn.fromAccountId || null, confirmed_at: confirmedAt }).catch(() => {});
+    return view('confirmed', { confirmedAt });
   }
-  res.json({ ok: true, payment: publicView(p) });
+  return view(now > t.exp ? 'expired' : 'pending');
 }));
 
-router.post('/cancel/:id', requireBakong, limiter(20), asyncRoute(async (req, res) => {
-  if (!UUID.test(req.params.id)) throw new ApiError(400, 'Invalid payment id.', 'bad_id');
-  const p = await store.getPayment(req.params.id);
-  if (!p) throw new ApiError(404, 'Payment not found.', 'not_found');
-  if (p.status !== 'pending') return res.json({ ok: true, payment: publicView(p) });
-  // Cancelling only hides it in the UI. If the user already paid, a later status check cannot revive it.
-  res.json({ ok: true, payment: publicView(await store.updatePayment(p.id, { status: 'cancelled' })) });
+router.post('/cancel', requireBakong, limiter(20), asyncRoute(async (req, res) => {
+  const t = verifyPayment(req.body?.token);
+  store.updatePayment(t.id, { status: 'cancelled' }).catch(() => {});
+  res.json({ ok: true, payment: { id: t.id, status: 'cancelled', amount: t.amount, currency: t.currency } });
 }));

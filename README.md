@@ -101,6 +101,7 @@ Set every variable from `.env.example` in the host's environment settings, set `
 |---|---|
 | `Unexpected end of JSON input` / "returned an empty response" | API server not running or proxy cannot reach it: run `npm run dev:all`; check port 8787 |
 | "returned a web page instead of JSON" | `/api` is being served by a static host (see Deployment) |
+| `TypeError: fetch failed` (server) / dashboard never loads | `SUPABASE_URL` / `VITE_SUPABASE_URL` is wrong, has a typo or extra path, or the Supabase project is paused. It must look like `https://abcdxyz.supabase.co` (Project Settings -> API). Tips still work without Supabase (payments are now stateless signed tokens); the dashboard does not |
 | `bakong_auth` | Token wrong/expired, or server IP blocked by Bakong |
 | `bakong_bad_response` | Bakong returned empty/non-JSON (usually IP block) |
 | Server exits at start | Read the `[env]` message: missing/partial variables |

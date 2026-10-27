@@ -39,7 +39,7 @@ router.post('/bakong/test', asyncRoute(async (req, res) => {
   if (!env.features.bakong) throw new ApiError(503, 'Bakong is not configured.', 'bakong_off');
   const { amount, currency } = parseAmount(req.body?.amount ?? 0.01, req.body?.currency ?? 'USD');
   const p = await createPayment({ amount, currency, isTest: true });
-  res.status(201).json({ ok: true, payment: { id: p.id, status: p.status, amount: Number(p.amount), currency: p.currency, qr: p.qr,
+  res.status(201).json({ ok: true, payment: { id: p.id, status: p.status, amount: Number(p.amount), currency: p.currency, qr: p.qr, token: p.token,
     expiresAt: p.expires_at, isTest: true, environment: p.environment, recipient: { name: env.bakong.merchantName, city: env.bakong.merchantCity } } });
 }));
 
