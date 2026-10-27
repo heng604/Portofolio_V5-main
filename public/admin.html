@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>Admin</title>
+<style>
+:root{color-scheme:dark;--bg:#030014;--card:#0d0d22;--line:rgba(255,255,255,.12);--txt:#e5e7eb;--mut:#9ca3af;--pri:#6366f1}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+a{color:#a5b4fc}button,input,select,textarea{font:inherit;color:inherit}
+input,textarea,select{width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;outline:none}
+input:focus,textarea:focus{border-color:var(--pri)}textarea{min-height:80px;resize:vertical}
+button{background:var(--pri);border:0;border-radius:10px;padding:8px 14px;cursor:pointer;color:#fff}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}button.red{background:#b91c1c}button:disabled{opacity:.5}
+.wrap{max-width:980px;margin:0 auto;padding:16px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.card{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0}
+.nav{position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5;border-bottom:1px solid var(--line)}
+.nav button{background:transparent;border:1px solid var(--line)}.nav button.on{background:var(--pri);border-color:var(--pri)}
+label{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#a5b4fc;margin:8px 0 4px}
+h1{font-size:22px;margin:8px 0}h2{font-size:15px;margin:18px 0 4px}.mut{color:var(--mut);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.grid img{width:100%;aspect-ratio:16/11;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+#toast{position:fixed;right:14px;bottom:14px;max-width:360px;padding:10px 14px;border-radius:10px;display:none;z-index:50}
+.ok{background:#14532d}.err{background:#7f1d1d}.center{min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:16px}
+.nf{color:#111;background:#fff}.nf h1{font-size:48px}
+</style></head><body><div id="app"></div><div id="toast"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.9/dist/umd/supabase.js"></script>
+<script>
+// ===== Standalone admin dashboard. Only the admin Google account (checked by the database function is_admin()) gets in. =====
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const app=$('#app');let sb=null,tab='texts';
+function toast(m,bad){const t=$('#toast');t.textContent=m;t.className=bad?'err':'ok';t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',bad?7000:2500)}
+const conf=()=>({url:(localStorage.getItem('sb_url')||window.ADMIN_SUPABASE_URL||'').trim(),key:(localStorage.getItem('sb_key')||window.ADMIN_SUPABASE_KEY||'').trim()});
+
+const FIELDS = [
+  ["site_name", "Website name", "text", "General"], ["seo_title", "SEO title", "text", "General"], ["seo_description", "SEO description", "area", "General"],
+  ["cv_url", "CV / Resume (use the upload button)", "cv", "General"],
+  ["hero_title", "Hero title (e.g. Networking Engineer)", "text", "Home"], ["hero_subtitle", "Hero description", "area", "Home"],
+  ["hero_words", "Typing words (comma separated)", "text", "Home"], ["hero_image", "Hero image / animation", "img", "Home"],
+  ["home_badge", "Badge text (Ready to Innovate)", "text", "Home"], ["home_btn_projects", "Button: Projects", "text", "Home"], ["home_btn_contact", "Button: Contact", "text", "Home"],
+  ["social_github", "GitHub link", "text", "Home"], ["social_facebook", "Facebook link", "text", "Home"], ["social_instagram", "Instagram link", "text", "Home"],
+  ["about_title", "Section title (About Me)", "text", "About"], ["about_subtitle", "Section subtitle", "text", "About"],
+  ["about_name", "Name shown on About", "text", "About"], ["about_text", "About text", "area", "About"], ["about_quote", "About quote", "text", "About"],
+  ["profile_image", "Profile photo", "img", "About"],
+  ["experience_title", "Experience heading", "text", "About"], ["experience_text", "Experience (blank = hidden)", "area", "About"],
+  ["education_title", "Education heading", "text", "About"], ["education_text", "Education (blank = hidden)", "area", "About"],
+  ["stat_projects_label", "Stat 1 label", "text", "About stats"], ["stat_projects_desc", "Stat 1 description", "text", "About stats"],
+  ["stat_certs_label", "Stat 2 label", "text", "About stats"], ["stat_certs_desc", "Stat 2 description", "text", "About stats"],
+  ["stat_exp_value", "Stat 3 number (months)", "text", "About stats"], ["stat_exp_label", "Stat 3 label", "text", "About stats"], ["stat_exp_desc", "Stat 3 description", "text", "About stats"],
+  ["portfolio_title", "Section title (Portfolio Showcase)", "text", "Portfolio"], ["portfolio_subtitle", "Section description", "area", "Portfolio"],
+  ["tab_projects", "Tab: Projects", "text", "Portfolio"], ["tab_certs", "Tab: Certificates", "text", "Portfolio"], ["tab_tech", "Tab: Tech Stack", "text", "Portfolio"],
+  ["contact_title", "Contact title", "text", "Contact & footer"], ["contact_subtitle", "Contact description", "area", "Contact & footer"],
+  ["contact_email", "Contact email (shown in footer)", "text", "Contact & footer"], ["contact_phone", "Contact phone (shown in footer)", "text", "Contact & footer"],
+  ["social_telegram", "Telegram link (shown in footer)", "text", "Contact & footer"], ["footer_name", "Footer name", "text", "Contact & footer"],
+];
+const BUILTIN_CERTS=["ccna-introduction_to_networks.jpg", "ccna-switching-_routing-_and_wireless_essentials.jpg", "create_digital_content-communicate_and_collaborate_online.jpg", "creating_compelling_reports.jpg", "data_analytics_essentials.jpg", "data_science_essentials_with_python.jpg", "digital_awareness.jpg", "ethical_hacker.jpg", "exploring_networking_with_cisco_packet_tracer.jpg", "getting_started_with_cisco_packet_tracer.jpg", "introduction_to_cybersecurity.jpg", "introduction_to_greenhouse_gas_accounting_for_it.jpg", "introduction_to_modern_ai.jpg", "javascript_essentials_1.jpg", "managing_a_business_venture.jpg", "networking_basics.jpg", "operating_systems_basics.jpg", "python_essentials_1.jpg", "python_essentials_2.jpg"];
+
+async function boot(){
+  const c=conf();
+  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(c.url)||c.key.length<30) return setup();
+  sb=supabase.createClient(c.url,c.key);
+  const {data,error}=await sb.auth.getSession();
+  if(error) return fail('Could not reach Supabase: '+error.message);
+  if(!data.session) return login();
+  const {data:ok,error:e2}=await sb.rpc('is_admin');
+  if(e2) return fail('Supabase check failed: '+e2.message+' - did you run schema.sql? Is the URL/key right?');
+  if(ok!==true) return notFound(data.session.user.email);
+  shell();
+}
+function setup(msg){const c=conf();app.innerHTML=`<div class="center"><div class="card" style="max-width:460px;width:100%;text-align:left"><h1>Connect to Supabase</h1><p class="mut">Supabase &rarr; Project Settings &rarr; API. Use the Project URL and the <b>anon public</b> key (never the service_role key).</p>${msg?`<p style="color:#fca5a5">${esc(msg)}</p>`:''}<label>Project URL</label><input id="u" placeholder="https://abcdxyz.supabase.co" value="${esc(c.url)}"><label>Anon public key</label><input id="k" value="${esc(c.key)}"><p><button id="go">Save &amp; continue</button></p></div></div>`;
+  $('#go').onclick=()=>{const u=$('#u').value.trim().replace(/\/+$/,''),k=$('#k').value.trim();if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(u))return setup('URL must look like https://abcdxyz.supabase.co');localStorage.setItem('sb_url',u);localStorage.setItem('sb_key',k);boot()}}
+function fail(m){app.innerHTML=`<div class="center"><div class="card" style="max-width:520px"><h1>Connection problem</h1><p style="color:#fca5a5">${esc(m)}</p><p class="row" style="justify-content:center"><button id="r">Retry</button><button class="ghost" id="s">Change Supabase settings</button></p></div></div>`;$('#r').onclick=boot;$('#s').onclick=()=>setup()}
+function login(){app.innerHTML=`<div class="center"><div class="card" style="max-width:380px;width:100%"><h1>Admin</h1><p class="mut">Sign in with the admin Google account.</p><p><button id="g" style="background:#fff;color:#111;width:100%;padding:11px">Continue with Google</button></p><p><a href="#" id="s" class="mut">Change Supabase settings</a></p></div></div>`;
+  $('#g').onclick=async()=>{const {error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname,queryParams:{prompt:'select_account'}}});if(error)toast(error.message,1)};$('#s').onclick=e=>{e.preventDefault();setup()}}
+function notFound(){app.innerHTML=`<div class="center nf"><div><h1>404</h1><p>This page could not be found.</p><p style="margin-top:40px"><a href="#" id="o" style="color:#ddd;font-size:11px">.</a></p></div></div>`;document.body.style.background='#fff';$('#o').onclick=async e=>{e.preventDefault();await sb.auth.signOut();location.reload()}}
+
+function shell(){
+  app.innerHTML=`<div class="wrap"><div class="nav row"><b style="margin-right:8px">Portfolio Admin</b>${[['texts','Texts & images'],['projects','Projects'],['certs','Certificates'],['tech','Tech stack']].map(([k,l])=>`<button data-t="${k}" class="${tab===k?'on':''}">${l}</button>`).join('')}<span style="flex:1"></span><a href="/" target="_blank" rel="noopener">View site</a><button class="ghost" id="out">Sign out</button></div><div id="view"></div></div>`;
+  document.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tab=b.dataset.t;shell()});
+  $('#out').onclick=async()=>{await sb.auth.signOut();location.reload()};
+  ({texts:viewTexts,projects:viewProjects,certs:viewCerts,tech:viewTech})[tab]();
+}
+async function upload(bucket,file,prefix,types,max){
+  if(!types.includes(file.type)) throw new Error('Wrong file type: '+file.type);
+  if(file.size>max) throw new Error('File too large (max '+Math.round(max/1048576)+' MB)');
+  const name=prefix+'-'+Date.now()+'.'+(file.type==='image/svg+xml'?'svg':file.type.split('/')[1]);
+  const {error}=await sb.storage.from(bucket).upload(name,file,{contentType:file.type});
+  if(error) throw error;
+  return sb.storage.from(bucket).getPublicUrl(name).data.publicUrl;
+}
+const IMG=['image/jpeg','image/png','image/webp','image/gif','image/svg+xml'];
+
+// ---------- Texts & images ----------
+async function viewTexts(){
+  const v=$('#view');v.innerHTML='<p class="mut">Loading...</p>';
+  const {data,error}=await sb.from('site_settings').select('key,value');
+  if(error){v.innerHTML='';return toast(error.message,1)}
+  const vals={};(data||[]).forEach(r=>vals[r.key]=r.value&&r.value.text||'');
+  let last='';
+  v.innerHTML='<h1>Texts & images</h1><p class="mut">Empty field = the website shows its built-in text. Each field has its own Save button.</p><input id="q" placeholder="Search...">'+
+  FIELDS.map(([k,l,kind,g])=>{const h=g!==last?`<h2>${esc(g)}</h2>`:'';last=g;
+    const input=kind==='area'?`<textarea data-k="${k}">${esc(vals[k])}</textarea>`:`<input data-k="${k}" value="${esc(vals[k])}">`;
+    const up=kind==='img'?`<label class="ghost" style="display:inline-block;padding:8px 14px;border:1px solid var(--line);border-radius:10px;cursor:pointer;margin-left:8px;text-transform:none;letter-spacing:0;font-size:14px;color:inherit">Upload image<input type="file" accept="image/*" hidden data-up="${k}" data-kind="img"></label>${vals[k]?`<img src="${esc(vals[k])}" style="height:40px;border-radius:8px;vertical-align:middle;margin-left:8px">`:''}`:kind==='cv'?`<label style="display:inline-block;padding:8px 14px;border:1px solid var(--line);border-radius:10px;cursor:pointer;margin-left:8px;text-transform:none;letter-spacing:0;font-size:14px;color:inherit">Upload PDF<input type="file" accept="application/pdf" hidden data-up="${k}" data-kind="cv"></label>`:'';
+    return `${h}<div class="card" data-card="${esc((k+' '+l+' '+g).toLowerCase())}"><label>${esc(l)}</label>${input}<p><button data-save="${k}">Save</button>${up}</p></div>`}).join('');
+  $('#q').oninput=e=>document.querySelectorAll('[data-card]').forEach(c=>c.style.display=c.dataset.card.includes(e.target.value.toLowerCase())?'':'none');
+  const save=async(k,text)=>{const {error}=await sb.from('site_settings').upsert({key:k,value:{text},is_public:true,updated_at:new Date().toISOString()});error?toast('Save failed: '+error.message,1):toast('Saved "'+k+'" - live on next page load')};
+  document.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>save(b.dataset.save,$(`[data-k="${b.dataset.save}"]`).value));
+  document.querySelectorAll('[data-up]').forEach(i=>i.onchange=async()=>{const f=i.files[0];if(!f)return;try{const k=i.dataset.up,cv=i.dataset.kind==='cv';const url=await upload('site-files',f,k,cv?['application/pdf']:IMG,cv?10485760:5242880);$(`[data-k="${k}"]`).value=url;await save(k,url);viewTexts()}catch(e){toast(e.message,1)}});
+}
+
+// ---------- Projects ----------
+async function viewProjects(){
+  const v=$('#view');v.innerHTML='<p class="mut">Loading...</p>';
+  const {data,error}=await sb.from('projects').select('*').order('sort_order').order('id',{ascending:false});
+  if(error){v.innerHTML='';return toast(error.message,1)}
+  v.innerHTML=`<h1>Projects</h1><p><button id="new">+ Add project</button></p><div id="form"></div>`+(data||[]).map(p=>`<div class="card row"><img src="${esc(p.Img)}" style="width:90px;height:60px;object-fit:cover;border-radius:8px" onerror="this.style.visibility='hidden'"><div style="flex:1;min-width:160px"><b>${esc(p.Title)}</b><div class="mut">${p.is_published?'Published':'Hidden'} &middot; order ${p.sort_order}</div></div><button class="ghost" data-e="${p.id}">Edit</button><button class="ghost" data-h="${p.id}">${p.is_published?'Hide':'Publish'}</button><button class="red" data-d="${p.id}">Delete</button></div>`).join('')||'<p class="mut">No projects yet.</p>';
+  const byId=id=>data.find(p=>String(p.id)===String(id));
+  $('#new').onclick=()=>pform({});
+  document.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>pform(byId(b.dataset.e)));
+  document.querySelectorAll('[data-h]').forEach(b=>b.onclick=async()=>{const p=byId(b.dataset.h);const {error}=await sb.from('projects').update({is_published:!p.is_published}).eq('id',p.id);error?toast(error.message,1):viewProjects()});
+  document.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this project?'))return;const {error}=await sb.from('projects').delete().eq('id',b.dataset.d);error?toast(error.message,1):viewProjects()});
+}
+function pform(p){
+  const arr=x=>Array.isArray(x)?x:[];
+  $('#form').innerHTML=`<div class="card"><h2>${p.id?'Edit':'New'} project</h2><label>Title</label><input id="Title" value="${esc(p.Title)}"><label>Description</label><textarea id="Description">${esc(p.Description)}</textarea><label>Image URL</label><input id="Img" value="${esc(p.Img)}"><p><label style="display:inline-block;padding:8px 14px;border:1px solid var(--line);border-radius:10px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:14px;color:inherit">Upload image<input type="file" accept="image/*" hidden id="pimg"></label></p><label>Tech stack (comma separated)</label><input id="TechStack" value="${esc(arr(p.TechStack).join(', '))}"><label>Features (one per line)</label><textarea id="Features">${esc(arr(p.Features).join('\n'))}</textarea><label>Live link</label><input id="Link" value="${esc(p.Link)}"><label>GitHub link</label><input id="Github" value="${esc(p.Github)}"><label>Order (small number = first)</label><input id="sort_order" type="number" value="${p.sort_order??0}"><label><input type="checkbox" id="pub" style="width:auto" ${p.is_published===false?'':'checked'}> Published</label><p class="row"><button id="sv">Save</button><button class="ghost" id="cx">Cancel</button></p></div>`;
+  $('#pimg').onchange=async e=>{try{$('#Img').value=await upload('project-images',e.target.files[0],'project',IMG,5242880);toast('Image uploaded - press Save')}catch(x){toast(x.message,1)}};
+  $('#cx').onclick=()=>$('#form').innerHTML='';
+  $('#sv').onclick=async()=>{const row={Title:$('#Title').value.trim(),Description:$('#Description').value.trim(),Img:$('#Img').value.trim(),TechStack:$('#TechStack').value.split(',').map(s=>s.trim()).filter(Boolean),Features:$('#Features').value.split('\n').map(s=>s.trim()).filter(Boolean),Link:$('#Link').value.trim(),Github:$('#Github').value.trim(),sort_order:Number($('#sort_order').value)||0,is_published:$('#pub').checked};
+    if(!row.Title)return toast('Title is required',1);
+    const q=p.id?sb.from('projects').update(row).eq('id',p.id):sb.from('projects').insert(row);const {error}=await q;error?toast(error.message,1):(toast('Saved'),viewProjects())};
+  $('#form').scrollIntoView({behavior:'smooth'});
+}
+
+// ---------- Certificates ----------
+async function viewCerts(){
+  const v=$('#view');v.innerHTML='<p class="mut">Loading...</p>';
+  const {data,error}=await sb.from('certificates').select('*').order('sort_order').order('id');
+  if(error){v.innerHTML='';return toast(error.message,1)}
+  v.innerHTML=`<h1>Certificates</h1><p class="mut">While this list is empty the website shows its built-in certificates.</p><p class="row"><label style="display:inline-block;padding:8px 14px;background:var(--pri);border-radius:10px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:14px;color:#fff">+ Upload certificate<input type="file" accept="image/*" hidden id="cup"></label><button class="ghost" id="imp">Import built-in certificates</button></p><div class="grid">`+(data||[]).map(c=>`<div class="card"><img src="${esc(c.Img)}"><p class="mut">${c.is_published?'Published':'Hidden'} &middot; order ${c.sort_order}</p><div class="row"><button class="ghost" data-h="${c.id}">${c.is_published?'Hide':'Show'}</button><button class="red" data-d="${c.id}">Delete</button></div></div>`).join('')+'</div>';
+  $('#cup').onchange=async e=>{try{const url=await upload('certificate-images',e.target.files[0],'cert',IMG.slice(0,3),5242880);const {error}=await sb.from('certificates').insert({Img:url,sort_order:(data||[]).length});error?toast(error.message,1):viewCerts()}catch(x){toast(x.message,1)}};
+  $('#imp').onclick=async()=>{if((data||[]).length&&!confirm('Certificates already exist. Import anyway?'))return;const {error}=await sb.from('certificates').insert(BUILTIN_CERTS.map((n,i)=>({Img:'/certificates/'+n,sort_order:i})));error?toast(error.message,1):viewCerts()};
+  document.querySelectorAll('[data-h]').forEach(b=>b.onclick=async()=>{const c=data.find(x=>String(x.id)===b.dataset.h);const {error}=await sb.from('certificates').update({is_published:!c.is_published}).eq('id',c.id);error?toast(error.message,1):viewCerts()});
+  document.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete this certificate?'))return;const {error}=await sb.from('certificates').delete().eq('id',b.dataset.d);error?toast(error.message,1):viewCerts()});
+}
+
+// ---------- Tech stack ----------
+async function viewTech(){
+  const v=$('#view');v.innerHTML='<p class="mut">Loading...</p>';
+  const {data,error}=await sb.from('tech_stack').select('*').order('sort_order').order('id');
+  if(error){v.innerHTML='';return toast(error.message,1)}
+  v.innerHTML=`<h1>Tech stack</h1><p class="mut">Grouped on the site by Category. While this list is empty the website shows its built-in icons.</p><div class="card"><div class="row"><input id="n" placeholder="Name (e.g. Wireshark)" style="flex:1;min-width:140px"><input id="c" placeholder="Category" value="Web Development" style="flex:1;min-width:140px"><input id="i" placeholder="Icon URL" style="flex:1;min-width:160px"></div><p class="row"><label style="display:inline-block;padding:8px 14px;border:1px solid var(--line);border-radius:10px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:14px;color:inherit">Upload icon<input type="file" accept="image/*" hidden id="iup"></label><button id="add">Add</button></p></div>`+(data||[]).map(t=>`<div class="card row"><img src="${esc(t.icon_url)}" style="width:34px;height:34px;object-fit:contain" onerror="this.style.visibility='hidden'"><div style="flex:1"><b>${esc(t.name)}</b> <span class="mut">${esc(t.category)} &middot; ${t.is_published?'Published':'Hidden'}</span></div><button class="ghost" data-h="${t.id}">${t.is_published?'Hide':'Show'}</button><button class="red" data-d="${t.id}">Delete</button></div>`).join('');
+  $('#iup').onchange=async e=>{try{$('#i').value=await upload('project-images',e.target.files[0],'tech',IMG,2097152);toast('Icon uploaded - press Add')}catch(x){toast(x.message,1)}};
+  $('#add').onclick=async()=>{const name=$('#n').value.trim();if(!name)return toast('Name is required',1);const {error}=await sb.from('tech_stack').insert({name,category:$('#c').value.trim()||'general',icon_url:$('#i').value.trim()||null,sort_order:(data||[]).length});error?toast(error.message,1):viewTech()};
+  document.querySelectorAll('[data-h]').forEach(b=>b.onclick=async()=>{const t=data.find(x=>String(x.id)===b.dataset.h);const {error}=await sb.from('tech_stack').update({is_published:!t.is_published}).eq('id',t.id);error?toast(error.message,1):viewTech()});
+  document.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{if(!confirm('Delete?'))return;const {error}=await sb.from('tech_stack').delete().eq('id',b.dataset.d);error?toast(error.message,1):viewTech()});
+}
+boot();
+</script></body></html>
