@@ -146,3 +146,7 @@ API reference: https://api-bakong.nbc.gov.kh/ and official KHQR SDK documentatio
 ## Original portfolio assets
 
 The original public files are retained, including `public/Photo.png`, `public/Photo.jpeg`, the certificate gallery, `public/THENG_SEANGHENG_CV.pdf`, project imagery, SVG icons, GIF animations, Lottie JSON, sitemap, robots file, and Google verification file.
+
+## Vercel dependency conflict fix
+
+The original lockfile referenced `react-swipeable-views@0.14.0`, whose peer dependency range excludes React 18. The corrected project removes the stale lockfile and does not declare `react-swipeable-views`; the existing portfolio tab navigation is retained without requiring that incompatible package. Run `npm install` locally to generate a fresh `package-lock.json` before committing if you want a lockfile. The build should still be verified in your own environment with `npm run build` before production deployment.

@@ -1,9 +1,8 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 
 import { supabase } from "../supabase"; 
 
 import PropTypes from "prop-types";
-import SwipeableViews from "react-swipeable-views";
 import { useTheme } from "@mui/material/styles";
 import AppBar from "@mui/material/AppBar";
 import Tabs from "@mui/material/Tabs";
@@ -123,6 +122,15 @@ const techStacks = [
 export default function FullWidthTabs() {
   const theme = useTheme();
   const [value, setValue] = useState(0);
+  const touchStartX = useRef(null);
+  const handleTouchStart = (event) => { touchStartX.current = event.touches?.[0]?.clientX ?? null; };
+  const handleTouchEnd = (event) => {
+    if (touchStartX.current === null) return;
+    const endX = event.changedTouches?.[0]?.clientX;
+    const delta = endX - touchStartX.current;
+    if (Math.abs(delta) > 60) setValue((current) => Math.max(0, Math.min(2, current + (delta < 0 ? 1 : -1))));
+    touchStartX.current = null;
+  };
   const [projects, setProjects] = useState([]);
   const [certificates, setCertificates] = useState(localCertificates);
   const [showAllProjects, setShowAllProjects] = useState(false);
@@ -305,11 +313,7 @@ export default function FullWidthTabs() {
           </Tabs>
         </AppBar>
 
-        <SwipeableViews
-          axis={theme.direction === "rtl" ? "x-reverse" : "x"}
-          index={value}
-          onChangeIndex={setValue}
-        >
+        <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} className="min-w-0">
           <TabPanel value={value} index={0} dir={theme.direction}>
             <div className="container mx-auto flex justify-center items-center overflow-hidden">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3 gap-5">
@@ -379,7 +383,7 @@ export default function FullWidthTabs() {
               </div>
             </div>
           </TabPanel>
-        </SwipeableViews>
+        </div>
       </Box>
     </div>
   );
