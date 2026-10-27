@@ -1,121 +1,84 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Settings as SettingsIcon, Save, Loader2 } from 'lucide-react'
-import { supabase } from '../../supabase'
-import { Card, PageHeader, FileDrop, inputCls, btnPrimary, toast } from './ui'
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Settings as Cog, Upload, Save, Search } from "lucide-react";
+import { supabase } from "../../supabase";
 
-// Every field is stored as one row in public.site_settings (key -> jsonb value).
-// type: text | textarea | number | bool | url | image | pdf
-const GROUPS = [
-  { id: 'hero', title: 'Hero content', fields: [
-    { key: 'hero.name', label: 'Display name', type: 'text' },
-    { key: 'hero.role', label: 'Role / headline', type: 'text' },
-  ] },
-  { id: 'contact', title: 'Contact details', fields: [
-    { key: 'contact.email', label: 'Public contact email', type: 'text' },
-    { key: 'contact.phone', label: 'Phone (optional)', type: 'text' },
-    { key: 'contact.location', label: 'Location (optional)', type: 'text' },
-  ] },
-  { id: 'social', title: 'Social links', fields: [
-    { key: 'social.telegram', label: 'Telegram URL', type: 'url' },
-    { key: 'social.github', label: 'GitHub URL', type: 'url' },
-    { key: 'social.linkedin', label: 'LinkedIn URL', type: 'url' },
-    { key: 'social.facebook', label: 'Facebook URL', type: 'url' },
-    { key: 'social.instagram', label: 'Instagram URL', type: 'url' },
-  ] },
-  { id: 'cv', title: 'CV / Resume', fields: [
-    { key: 'cv.url', label: 'CV file (PDF) - upload or paste a link', type: 'pdf' },
-  ] },
-  { id: 'seo', title: 'SEO metadata', fields: [
-    { key: 'seo.title', label: 'Page title', type: 'text' },
-    { key: 'seo.description', label: 'Meta description', type: 'textarea' },
-    { key: 'seo.image', label: 'Share image (Open Graph)', type: 'image' },
-  ] },
-  { id: 'bakong', title: 'Bakong recipient (public, non-secret)', fields: [
-    { key: 'bakong.enabled', label: 'Accept tips', type: 'bool' },
-    { key: 'bakong.recipient_name_en', label: 'Recipient name (Latin, max 25 chars, shown in QR)', type: 'text', max: 25 },
-    { key: 'bakong.recipient_name_km', label: 'Recipient name (Khmer, shown on the card)', type: 'text', max: 25 },
-    { key: 'bakong.city', label: 'City', type: 'text' },
-    { key: 'bakong.usd_min', label: 'Minimum tip (USD)', type: 'number' },
-    { key: 'bakong.usd_max', label: 'Maximum tip (USD)', type: 'number' },
-    { key: 'bakong.khr_min', label: 'Minimum tip (KHR)', type: 'number' },
-    { key: 'bakong.khr_max', label: 'Maximum tip (KHR)', type: 'number' },
-  ] },
-  { id: 'general', title: 'General', fields: [
-    { key: 'site.footer_text', label: 'Footer text (optional)', type: 'text' },
-  ] },
-]
+// Every field is stored in public.site_settings as {"text": "..."} and is editable here.
+const FIELDS = [
+  ["cv_url", "CV / Resume URL (use the upload button)", "cv"],
+  ["hero_title", "Hero title", "text"], ["hero_subtitle", "Hero subtitle", "text"],
+  ["about_text", "About text", "area"], ["experience_text", "Experience", "area"], ["education_text", "Education", "area"],
+  ["social_telegram", "Telegram link", "text"], ["social_github", "GitHub link", "text"],
+  ["contact_email", "Contact email", "text"], ["contact_phone", "Contact phone", "text"],
+  ["seo_title", "SEO title", "text"], ["seo_description", "SEO description", "area"],
+  ["site_name", "Website name", "text"],
+];
+const MAX_CV = 10 * 1024 * 1024;
 
 export default function Settings() {
-  const [values, setValues] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState('')
-  const [errors, setErrors] = useState({})
+  const [vals, setVals] = useState({});
+  const [q, setQ] = useState("");
+  const [saving, setSaving] = useState("");
+  const [msg, setMsg] = useState({ type: "", text: "" });
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.from('site_settings').select('key,value')
-    if (error) toast('error', error.message)
-    setValues(Object.fromEntries((data || []).map((r) => [r.key, r.value])))
-    setLoading(false)
-  }, [])
-  useEffect(() => { load() }, [load])
+    const { data, error } = await supabase.from("site_settings").select("key,value");
+    if (error) setMsg({ type: "error", text: error.message });
+    const o = {}; (data || []).forEach((r) => { o[r.key] = r.value?.text ?? ""; });
+    setVals(o); setLoading(false);
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
-  const set = (k, v) => setValues((s) => ({ ...s, [k]: v }))
+  const save = async (key, text) => {
+    setSaving(key); setMsg({ type: "", text: "" });
+    const { error } = await supabase.from("site_settings").upsert({ key, value: { text }, is_public: true, updated_at: new Date().toISOString() });
+    setSaving("");
+    setMsg(error ? { type: "error", text: `Save failed: ${error.message}` } : { type: "ok", text: `Saved "${key}". It is live on the site.` });
+  };
 
-  const save = async (group) => {
-    const errs = {}
-    group.fields.forEach((f) => {
-      const v = values[f.key]
-      if (f.type === 'number' && v !== undefined && v !== '' && !Number.isFinite(Number(v))) errs[f.key] = 'Must be a number'
-      if (f.type === 'url' && v && !/^https?:\/\//i.test(v)) errs[f.key] = 'Must start with http:// or https://'
-      if (f.max && String(v || '').length > f.max) errs[f.key] = `Max ${f.max} characters`
-    })
-    setErrors(errs)
-    if (Object.keys(errs).length) return toast('error', 'Fix the highlighted fields')
-    setSaving(group.id)
-    const rows = group.fields
-      .filter((f) => values[f.key] !== undefined)
-      .map((f) => ({ key: f.key, group_name: group.id, is_public: true, value: f.type === 'number' ? Number(values[f.key]) : values[f.key] }))
-    const { error } = await supabase.from('site_settings').upsert(rows, { onConflict: 'key' })
-    setSaving('')
-    if (error) return toast('error', error.message)
-    toast('success', `${group.title} saved`)
-  }
+  const uploadCv = async (file) => {
+    if (!file) return;
+    if (file.type !== "application/pdf") return setMsg({ type: "error", text: "CV must be a PDF file." });
+    if (file.size > MAX_CV) return setMsg({ type: "error", text: "CV must be 10 MB or smaller." });
+    setSaving("cv_url");
+    const name = `cv-${Date.now()}.pdf`;
+    const { error } = await supabase.storage.from("site-files").upload(name, file, { contentType: "application/pdf" });
+    if (error) { setSaving(""); return setMsg({ type: "error", text: `Upload failed: ${error.message}` }); }
+    const url = supabase.storage.from("site-files").getPublicUrl(name).data.publicUrl;
+    setVals((v) => ({ ...v, cv_url: url }));
+    await save("cv_url", url);
+  };
+
+  const shown = useMemo(() => FIELDS.filter(([k, l]) => `${k} ${l}`.toLowerCase().includes(q.toLowerCase())), [q]);
+  const cls = "w-full bg-[#0d0d22] border border-white/10 rounded-xl px-3 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500/60";
 
   return (
-    <div className="space-y-6">
-      <PageHeader icon={SettingsIcon} title="Settings" subtitle={loading ? 'Loading...' : 'Saved to the database; public pages read them without a code change'} />
-      <p className="text-xs text-amber-300/90 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
-        Secrets (Bakong API token, Resend key, service-role key) are never stored here - they live in server environment variables only.
-        The Bakong account ID also comes from the server environment (BAKONG_ACCOUNT_ID).
-      </p>
-      {GROUPS.map((g) => (
-        <Card key={g.id} className="p-5 space-y-4">
-          <h2 className="font-semibold text-white">{g.title}</h2>
-          {g.fields.map((f) => (
-            <div key={f.key}>
-              <label className="text-xs text-gray-400 uppercase tracking-wider block mb-1.5" htmlFor={f.key}>{f.label}</label>
-              {f.type === 'bool' ? (
-                <label className="inline-flex items-center gap-2 text-sm text-gray-200"><input id={f.key} type="checkbox" checked={Boolean(values[f.key])} onChange={(e) => set(f.key, e.target.checked)} /> Enabled</label>
-              ) : f.type === 'textarea' ? (
-                <textarea id={f.key} rows={3} className={inputCls} value={values[f.key] ?? ''} onChange={(e) => set(f.key, e.target.value)} />
-              ) : f.type === 'image' || f.type === 'pdf' ? (
-                <div className="space-y-2">
-                  <input id={f.key} className={inputCls} value={values[f.key] ?? ''} onChange={(e) => set(f.key, e.target.value)} placeholder="https://..." />
-                  <FileDrop bucket={f.type === 'pdf' ? 'cv-files' : 'site-assets'} pdf={f.type === 'pdf'}
-                    accept={f.type === 'pdf' ? 'application/pdf' : 'image/jpeg,image/png,image/webp'} maxMB={f.type === 'pdf' ? 10 : 5}
-                    value={values[f.key]} onUploaded={(url) => set(f.key, url)} label={f.type === 'pdf' ? 'Drop a PDF here or click to browse' : undefined} />
-                </div>
-              ) : (
-                <input id={f.key} className={inputCls} type={f.type === 'number' ? 'number' : 'text'} step="any" value={values[f.key] ?? ''} onChange={(e) => set(f.key, e.target.value)} />
+    <div className="space-y-4">
+      <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Cog className="w-5 h-5 text-indigo-400" aria-hidden="true" />Site settings</h1>
+      <div className="relative max-w-sm"><Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+        <input aria-label="Search settings" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search..." className={`${cls} pl-9`} /></div>
+      {msg.text && <p role={msg.type === "error" ? "alert" : "status"} className={`p-3 rounded-xl text-sm border ${msg.type === "error" ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-green-500/10 border-green-500/30 text-green-300"}`}>{msg.text}</p>}
+      {loading && <p className="text-gray-500 text-sm">Loading...</p>}
+      <div className="grid gap-4">
+        {shown.map(([key, label, kind]) => (
+          <div key={key} className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
+            <label htmlFor={key} className="text-xs text-indigo-300/70 uppercase tracking-wider font-medium">{label}</label>
+            {kind === "area" ? <textarea id={key} rows={4} className={cls} value={vals[key] || ""} onChange={(e) => setVals((v) => ({ ...v, [key]: e.target.value }))} />
+              : <input id={key} className={cls} value={vals[key] || ""} onChange={(e) => setVals((v) => ({ ...v, [key]: e.target.value }))} />}
+            <div className="flex gap-2 items-center flex-wrap">
+              <button onClick={() => save(key, vals[key] || "")} disabled={saving === key} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm"><Save className="w-4 h-4" aria-hidden="true" />{saving === key ? "Saving..." : "Save"}</button>
+              {kind === "cv" && (
+                <label className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/15 text-gray-200 text-sm cursor-pointer hover:bg-white/5">
+                  <Upload className="w-4 h-4" aria-hidden="true" />Upload PDF
+                  <input type="file" accept="application/pdf" className="hidden" onChange={(e) => uploadCv(e.target.files?.[0])} />
+                </label>
               )}
-              {errors[f.key] && <p className="text-xs text-red-400 mt-1" role="alert">{errors[f.key]}</p>}
+              {kind === "cv" && vals.cv_url && <a href={vals.cv_url} target="_blank" rel="noopener noreferrer" className="text-sm text-indigo-300 underline">Open current CV</a>}
             </div>
-          ))}
-          <button onClick={() => save(g)} disabled={saving === g.id || loading} className={btnPrimary}>
-            {saving === g.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Save {g.title}
-          </button>
-        </Card>
-      ))}
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-gray-500">Currently the CV link (About page) reads from these settings live. Other fields are stored and editable, but the public pages still show their original built-in text until they are wired to read them.</p>
     </div>
-  )
+  );
 }

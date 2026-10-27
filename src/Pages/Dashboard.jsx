@@ -6,12 +6,18 @@ import Certificates from './dashboard/Certificates'
 import Comments from './dashboard/Comments'
 import Bakong from './dashboard/Bakong'
 import Messages from './dashboard/Messages'
-import { FolderGit2, Award, MessageSquare, LogOut, LayoutDashboard, Menu, QrCode, Mail } from 'lucide-react'
+import Settings from './dashboard/Settings'
+import TechStack from './dashboard/TechStack'
+import Translations from './dashboard/Translations'
+import { FolderGit2, Award, MessageSquare, LogOut, LayoutDashboard, Menu, QrCode, Mail, Settings as SettingsIcon, Boxes, Languages } from 'lucide-react'
 
 const NAV_ITEMS = [
   { to: 'projects', label: 'Projects', icon: FolderGit2 },
   { to: 'certificates', label: 'Certificates', icon: Award },
   { to: 'comments', label: 'Comments', icon: MessageSquare },
+  { to: 'settings', label: 'Site settings & CV', icon: SettingsIcon },
+  { to: 'techstack', label: 'Tech stack', icon: Boxes },
+  { to: 'translations', label: 'Translations', icon: Languages },
   { to: 'messages', label: 'Messages', icon: Mail },
   { to: 'bakong', label: 'Bakong & Payments', icon: QrCode },
 ]
@@ -131,6 +137,9 @@ export default function Dashboard() {
             <Route path="projects" element={<Projects />} />
             <Route path="certificates" element={<Certificates />} />
             <Route path="comments" element={<Comments />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="techstack" element={<TechStack />} />
+            <Route path="translations" element={<Translations />} />
             <Route path="messages" element={<Messages />} />
             <Route path="bakong" element={<Bakong />} />
           </Routes>

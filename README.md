@@ -104,13 +104,14 @@ Google sign-in + server-verified admin gate + 404 for others + logout; email-bas
 existing + NEW publish/unpublish and reorder), Messages, Bakong & Payments (test + log), existing Certificates/Comments; EN/ខ្មែរ toggle with persistence
 and DB-overridable translations; Spotify project card pointing at `heng604/Spotify-ESP32`; safe-JSON fixes; `.env.example`, `.gitignore`, SQL.
 
-**NOT done (tables/policies exist, but no screens or public wiring yet):**
-- Admin forms for `site_settings` (hero/about/experience/education text, social links, contact details, SEO, CV upload), `tech_stack`,
-  `translations`, and the public pages reading them. The public Home/About/Tech Stack still use the original hard-coded content.
-- The public Certificates section still reads `src/data/certificates.js`, not the database, so dashboard certificate edits do not appear there yet.
-- Khmer/English translation covers navigation, contact, tip, footer, login and 404 strings only - not the rest of the original page text.
-- The dashboard sidebar labels are English only. Drag-and-drop upload/validation UI beyond the original file picker is not added (bucket-level size/MIME limits are enforced by Supabase).
-- Project detail modal/page is the original `/project/:slug` page; it was not re-tested with new fields.
+**Also implemented (second pass):** dashboard pages *Site settings & CV* (CV PDF upload to storage, validated type/size, live download link on the About page; plus
+hero/about/experience/education/social/contact/SEO text fields), *Tech stack* (add/publish/delete/search), *Translations* (EN/ខ្មែរ overrides, live on reload).
+
+**NOT done / partial:**
+- Only the CV link on the About page reads from `site_settings` today. The other settings fields and the Tech stack table are stored and editable, but the public Home/About/Tech Stack still render their original built-in content.
+- The public Certificates section still reads `src/data/certificates.js`, not the database.
+- Khmer/English translation covers navigation, contact, tip, footer, login and 404 strings only.
+- Dashboard sidebar labels are English only; no drag-and-drop uploader (the file picker + bucket size/MIME limits are used).
 
 **NOT tested (no network in the build environment):** `npm install`, lint, build, unit tests, Supabase, Google OAuth, Resend delivery, and any
 Bakong call - including a live transaction. Nothing here claims a verified live payment. Run the checklist in section 8 on your machine.
