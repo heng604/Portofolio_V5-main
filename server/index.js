@@ -2,26 +2,32 @@ import express from 'express';
 import cors from 'cors';
 import { config } from './env.js';
 import bakongRouter from './routes/bakong.js';
+import adminRouter from './routes/admin.js';
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Routes
+// API Routes
 app.use('/api/bakong', bakongRouter);
+app.use('/api/admin', adminRouter);
 
-// Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date() });
+  res.json({ status: 'OK', siteUrl: config.siteUrl, timestamp: new Date() });
 });
 
-// Global error handler to stop server crashes
+// Always return JSON for unhandled 404 API calls instead of HTML web page
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ success: false, error: 'API endpoint not found' });
+});
+
+// Global Error Handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled Server Error:', err.stack);
-  res.status(500).json({ success: false, error: 'Internal Server Error' });
+  console.error('Server Unhandled Error:', err);
+  res.status(500).json({ success: false, error: err.message || 'Internal Server Error' });
 });
 
 app.listen(config.port, () => {
-  console.log(`pf server listening on port ${config.port}`);
+  console.log(`Server running on ${config.siteUrl} (port ${config.port})`);
 });
