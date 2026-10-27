@@ -1,12 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import { getConfig } from '../env.js';
+import { env } from '../env.js';
 
-let client;
-// Service-role client: bypasses RLS. Server only. Never ship this key to the browser.
-export function db() {
-  if (!client) {
-    const { supabaseUrl, serviceKey } = getConfig();
-    client = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  }
-  return client;
-}
+// Service-role client: bypasses RLS. SERVER ONLY. Never import this from src/.
+export const admin = env.features.supabase
+  ? createClient(env.supabaseUrl, env.supabaseServiceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+  : null;

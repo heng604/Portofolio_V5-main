@@ -1,5 +1,4 @@
 import React, { useEffect, useState, memo, useMemo } from "react"
-import { useSiteSettings } from "../context/useSiteSettings";
 import localCertificates from "../data/certificates";
 import { FileText, Code, Award, Globe, ArrowUpRight, Sparkles, UserCheck } from "lucide-react"
 import AOS from 'aos'
@@ -115,8 +114,6 @@ const StatCard = memo(({ icon: Icon, color, value, label, description, animation
 ));
 
 const AboutPage = () => {
-  const { get: setting } = useSiteSettings();
-  const cvUrl = setting("cv.url", "/THENG_SEANGHENG_CV.pdf");
   // Memoized calculations
   const [stats, setStats] = useState({
     totalProjects: 0,
@@ -268,7 +265,7 @@ const AboutPage = () => {
       </div>
 
             <div className="flex flex-col lg:flex-row items-center lg:items-start gap-4 lg:gap-4 lg:px-0 w-full">
-              <a href={cvUrl} download="THENG_SEANGHENG_CV.pdf" target="_blank" rel="noopener noreferrer" className="w-full lg:w-auto">
+              <a href="/THENG_SEANGHENG_CV.pdf" download="THENG_SEANGHENG_CV.pdf" className="w-full lg:w-auto">
               <button 
                 data-aos="fade-up"
                 data-aos-duration="800"

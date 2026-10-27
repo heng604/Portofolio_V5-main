@@ -1,20 +1,32 @@
 import React, { useState, useEffect } from "react";
-import { Menu, X, Lock } from "lucide-react";
-import { Link } from "react-router-dom";
-import LanguageToggle from "./LanguageToggle";
-import { useLang } from "../i18n/LanguageContext";
+import { Menu, X } from "lucide-react";
+import { useLang } from "../lib/i18n";
+
+const LangToggle = ({ className = "" }) => {
+    const { lang, setLang, t } = useLang();
+    return (
+        <div role="group" aria-label={t("lang.toggle")} className={`inline-flex rounded-full border border-white/15 overflow-hidden text-xs font-semibold ${className}`}>
+            {[["en", "EN"], ["km", "ខ្មែរ"]].map(([code, label]) => (
+                <button key={code} type="button" onClick={() => setLang(code)} aria-pressed={lang === code}
+                    className={`px-3 py-1.5 transition-colors ${lang === code ? "bg-gradient-to-r from-[#6366f1] to-[#a855f7] text-white" : "text-[#e2d3fd] hover:text-white"}`}>
+                    {label}
+                </button>
+            ))}
+        </div>
+    );
+};
 
 const Navbar = () => {
-    const { t } = useLang();
     const [isOpen, setIsOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [activeSection, setActiveSection] = useState("Home");
     
+    const { t } = useLang();
     const navItems = [
         { href: "#Home", label: t("nav.home") },
         { href: "#About", label: t("nav.about") },
         { href: "#Portofolio", label: t("nav.portfolio") },
-        { href: "#Tip", label: t("nav.support") },
+        { href: "#Tip", label: t("nav.tip") },
         { href: "#Contact", label: t("nav.contact") },
     ];
 
@@ -121,21 +133,17 @@ const Navbar = () => {
                                     />
                                 </a>
                             ))}
-                            <LanguageToggle />
-                            <Link to="/login" aria-label="Admin login" title="Admin login"
-                                className="p-2 rounded-full border border-white/10 text-gray-400 hover:text-white hover:border-indigo-500/40 transition-colors">
-                                <Lock className="w-4 h-4" />
-                            </Link>
+                            <LangToggle />
                         </div>
                     </div>
         
                     {/* Mobile Menu Button */}
-                    <div className="md:hidden flex items-center gap-2">
-                        <LanguageToggle />
+                    <div className="md:hidden flex items-center gap-3">
+                        <LangToggle />
                         <button
-                            onClick={() => setIsOpen(!isOpen)}
                             aria-label={isOpen ? "Close menu" : "Open menu"}
                             aria-expanded={isOpen}
+                            onClick={() => setIsOpen(!isOpen)}
                             className={`relative p-2 text-[#e2d3fd] hover:text-white transition-transform duration-300 ease-in-out transform ${
                                 isOpen ? "rotate-90 scale-125" : "rotate-0 scale-100"
                             }`}

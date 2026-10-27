@@ -26,7 +26,7 @@ const localProjects = [
       "បង្ហាញចម្រៀងដែលកំពុងចាក់លើ Spotify ភ្លាមៗលើអេក្រង់ OLED 1.3\" (SH1106 128×64) ជាមួយ lyrics ដែលស៊ីងក្រូនជាមួយភ្លេង, ប្រព័ន្ធទឹកមុខពេលទំនេរ, របារដំណើរការចម្រៀង និង equalizer។ ប្រើ Discord Bot (Python) អាន Rich Presence ហើយផ្ញើទិន្នន័យតាម HTTP JSON API ទៅ ESP32។",
     Img: "/projects/spotify-esp32.svg",
     Link: "",
-    Github: "https://github.com/heng604/Spotify-ESP32.git",
+    Github: "https://github.com/heng604/Spotify-ESP32",
     TechStack: ["ESP32", "Arduino C++", "Python", "discord.py", "aiohttp", "SH1106 OLED", "lrclib API"],
     Features: [
       "បង្ហាញចម្រៀង និងអ្នកចម្រៀងដែលកំពុងចាក់ពី Spotify ភ្លាមៗ",
@@ -40,12 +40,12 @@ const localProjects = [
 ];
 
 // Combine local projects with remote (Supabase) ones, skipping duplicates by title.
-// supabase/schema.sql seeds these same projects into the database, so once the database has rows
-// the admin controls them (edit / unpublish / reorder / delete). The local list is only a fallback
-// for when Supabase is unreachable or the database has no projects yet.
 export const mergeProjects = (remote = []) => {
-  if (remote.length > 0) return remote;
-  return localProjects;
+  const remoteTitles = new Set(remote.map((p) => (p.Title || "").toLowerCase()));
+  const extras = localProjects.filter(
+    (p) => !remoteTitles.has(p.Title.toLowerCase())
+  );
+  return [...extras, ...remote];
 };
 
 export default localProjects;

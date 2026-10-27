@@ -1,43 +1,69 @@
-// Server-side environment handling. NEVER import this file from src/ (browser code).
+// Loads .env and validates it at startup.
+// - Core variables are mandatory: the server refuses to start without them.
+// - Feature groups (Supabase, Bakong, Resend) may be absent entirely (feature is
+//   disabled with a warning), but a PARTIALLY configured group is a fatal error,
+//   because that is almost always a typo that would otherwise fail at runtime.
 import 'dotenv/config';
 
-const CORE = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'ADMIN_EMAIL', 'SITE_URL'];
-const RESEND = ['RESEND_API_KEY', 'RESEND_FROM_EMAIL', 'CONTACT_TO_EMAIL'];
-const BAKONG = ['BAKONG_API_TOKEN', 'BAKONG_ACCOUNT_ID', 'BAKONG_MERCHANT_NAME'];
+const get = (k) => (process.env[k] ?? '').trim();
 
-const missing = (keys) => keys.filter((k) => !String(process.env[k] || '').trim());
-const looksPlaceholder = (v = '') => /^(your[-_]|xxx|changeme|<)/i.test(v.trim());
+const GROUPS = {
+  supabase: ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'],
+  bakong: ['BAKONG_ACCOUNT_ID', 'BAKONG_MERCHANT_NAME', 'BAKONG_API_BASE_URL', 'BAKONG_API_TOKEN'],
+  resend: ['RESEND_API_KEY', 'RESEND_FROM'],
+};
 
-export function getEnvReport() {
-  const bad = (keys) => keys.filter((k) => !process.env[k]?.trim() || looksPlaceholder(process.env[k]));
-  return { core: bad(CORE), resend: bad(RESEND), bakong: bad(BAKONG) };
+const problems = [];
+const warnings = [];
+
+const adminEmail = get('ADMIN_EMAIL').toLowerCase();
+if (!adminEmail) problems.push('ADMIN_EMAIL is required (the only account allowed into /dashboard).');
+const siteUrl = get('SITE_URL').replace(/\/+$/, '');
+if (!siteUrl) problems.push('SITE_URL is required (e.g. http://localhost:5173).');
+
+const features = {};
+for (const [name, keys] of Object.entries(GROUPS)) {
+  const missing = keys.filter((k) => !get(k));
+  if (missing.length === 0) features[name] = true;
+  else if (missing.length === keys.length) {
+    features[name] = false;
+    warnings.push(`${name} is NOT configured -> that feature is disabled (${keys.join(', ')}).`);
+  } else {
+    features[name] = false;
+    problems.push(`${name} is partially configured. Missing: ${missing.join(', ')}`);
+  }
 }
 
-export function getConfig() {
-  const mode = (process.env.BAKONG_MODE || 'sandbox').toLowerCase() === 'production' ? 'production' : 'sandbox';
-  const defaultBase = mode === 'production' ? 'https://api-bakong.nbc.gov.kh' : 'https://sit-api-bakong.nbc.gov.kh';
-  return {
-    siteUrl: (process.env.SITE_URL || '').replace(/\/$/, ''),
-    adminEmail: (process.env.ADMIN_EMAIL || '').trim().toLowerCase(),
-    supabaseUrl: process.env.SUPABASE_URL,
-    serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    resend: {
-      apiKey: process.env.RESEND_API_KEY,
-      from: process.env.RESEND_FROM_EMAIL,
-      to: process.env.CONTACT_TO_EMAIL,
-    },
-    bakong: {
-      mode,
-      baseUrl: (process.env.BAKONG_API_BASE_URL || defaultBase).replace(/\/$/, ''),
-      token: process.env.BAKONG_API_TOKEN,
-      accountId: process.env.BAKONG_ACCOUNT_ID,
-      merchantName: process.env.BAKONG_MERCHANT_NAME,
-      merchantCity: process.env.BAKONG_MERCHANT_CITY || 'Phnom Penh',
-      mobile: process.env.BAKONG_MOBILE_NUMBER || undefined,
-      expiresMinutes: Math.min(Math.max(Number(process.env.BAKONG_QR_EXPIRES_MINUTES) || 10, 2), 60),
-    },
-    ipSalt: process.env.IP_HASH_SALT || 'change-this-salt',
-  };
-}
+const bakongEnv = (get('BAKONG_ENV') || 'sandbox').toLowerCase();
+if (!['sandbox', 'production'].includes(bakongEnv)) problems.push('BAKONG_ENV must be "sandbox" or "production".');
 
-export { missing };
+if (problems.length) {
+  console.error('\n[env] Invalid configuration:\n - ' + problems.join('\n - ') + '\n');
+  console.error('[env] Copy .env.example to .env and fill the values (see README.md).');
+  process.exit(1);
+}
+warnings.forEach((w) => console.warn('[env] ' + w));
+
+export const env = Object.freeze({
+  port: Number(get('PORT')) || 8787,
+  isProd: get('NODE_ENV') === 'production',
+  siteUrl,
+  adminEmail,
+  features,
+  supabaseUrl: get('SUPABASE_URL'),
+  supabaseServiceKey: get('SUPABASE_SERVICE_ROLE_KEY'),
+  bakong: {
+    env: bakongEnv,
+    accountId: get('BAKONG_ACCOUNT_ID'),
+    merchantName: get('BAKONG_MERCHANT_NAME'),
+    merchantCity: get('BAKONG_MERCHANT_CITY') || 'Phnom Penh',
+    baseUrl: get('BAKONG_API_BASE_URL').replace(/\/+$/, ''),
+    token: get('BAKONG_API_TOKEN'),
+    qrTtlSeconds: Math.min(Math.max(Number(get('BAKONG_QR_TTL_SECONDS')) || 600, 120), 3600),
+  },
+  resend: {
+    apiKey: get('RESEND_API_KEY'),
+    from: get('RESEND_FROM'),
+    to: get('CONTACT_TO_EMAIL') || adminEmail,
+  },
+});

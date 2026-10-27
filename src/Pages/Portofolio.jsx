@@ -174,7 +174,12 @@ export default function FullWidthTabs() {
   const fetchData = useCallback(async () => {
     try {
       // Mengambil data dari Supabase secara paralel
-      const projectsResponse = await supabase.from("projects").select("*").eq("published", true).order("sort_order", { ascending: true }).order("id", { ascending: false });
+      // New schema: only published rows, admin-defined order. If the database has not been
+      // migrated yet (supabase/schema.sql), fall back to the original query so nothing disappears.
+      let projectsResponse = await supabase.from("projects").select("*").eq("is_published", true).order("sort_order", { ascending: true }).order("id", { ascending: false });
+      if (projectsResponse.error) {
+        projectsResponse = await supabase.from("projects").select("*").order("id", { ascending: false });
+      }
 
       // Error handling untuk setiap request
       if (projectsResponse.error) throw projectsResponse.error;

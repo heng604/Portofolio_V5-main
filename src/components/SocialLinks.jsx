@@ -9,7 +9,6 @@ import {
 import AOS from "aos";
 import "aos/dist/aos.css";
 import PresenceWidget from "./PresenceWidget";
-import { useSiteSettings } from "../context/useSiteSettings";
 
 const socialLinks = [
   {
@@ -96,14 +95,9 @@ const socialLinks = [
   },
 ];
 
-const SETTING_KEYS = { Facebook: "social.facebook", Instagram: "social.instagram", GitHub: "social.github" };
-
 const SocialLinks = () => {
-  const { get: setting } = useSiteSettings();
-  // URLs saved in Dashboard > Settings override the built-in defaults; empty settings keep the originals.
-  const links = socialLinks.map((l) => (SETTING_KEYS[l.name] ? { ...l, url: setting(SETTING_KEYS[l.name], l.url) } : l));
-  const facebook = links.find((link) => link.isPrimary);
-  const otherLinks = links.filter((link) => !link.isPrimary);
+  const facebook = socialLinks.find((link) => link.isPrimary);
+  const otherLinks = socialLinks.filter((link) => !link.isPrimary);
   const [instagram, youtube, github, tiktok] = otherLinks;
 
   useEffect(() => {

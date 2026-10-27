@@ -8,7 +8,12 @@ export default function PresenceWidget() {
     const fetchPresence = async () => {
       try {
         const res = await fetch("http://localhost:3001/api/presence");
-        const data = await res.json();
+        // Parse defensively: an empty/HTML body used to throw
+        // "Failed to execute 'json' on 'Response': Unexpected end of JSON input".
+        const raw = await res.text();
+        let data = null;
+        try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
+        if (!res.ok || !data) return; // presence server offline: just show nothing
 
         const normalized = (data.activities || [])
           .slice(0, 2)

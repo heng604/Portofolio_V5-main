@@ -1,20 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { Share2, User, Mail, MessageSquare, Send } from "lucide-react";
+import { Share2, User, Mail, MessageSquare, Send, Tag } from "lucide-react";
 import { Link } from "react-router-dom";
 import SocialLinks from "../components/SocialLinks";
 import Komentar from "../components/Commentar";
 import Swal from "sweetalert2";
 import AOS from "aos";
 import "aos/dist/aos.css";
-import { apiFetch } from "../utils/api";
-import { useLang } from "../i18n/LanguageContext";
-import { Type } from "lucide-react";
-
-const EMPTY_FORM = { name: "", email: "", subject: "", message: "", website: "" };
+import { apiFetch } from "../lib/api";
+import { useLang } from "../lib/i18n";
 
 const ContactPage = () => {
   const { t } = useLang();
-  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    subject: "",
+    message: "",
+    website: "", // honeypot: hidden from humans, bots fill it
+  });
   const [fieldErrors, setFieldErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -34,38 +37,26 @@ const ContactPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isSubmitting) return; // prevent duplicate submissions
+    if (isSubmitting) return; // prevents duplicate submissions
     setIsSubmitting(true);
     setFieldErrors({});
-
-    Swal.fire({
-      title: t("contact.sending"),
-      html: t("contact.sendingHtml"),
-      allowOutsideClick: false,
-      didOpen: () => {
-        Swal.showLoading();
-      },
-    });
-
     try {
-      // Server validates/sanitises, rate-limits, stores in Supabase and sends through Resend.
       await apiFetch("/api/contact", { method: "POST", body: formData });
-
       Swal.fire({
-        title: t("contact.success"),
-        text: t("contact.successText"),
+        title: t("contact.ok"),
+        text: t("contact.okText"),
         icon: "success",
         confirmButtonColor: "#6366f1",
         timer: 2500,
         timerProgressBar: true,
       });
-      setFormData(EMPTY_FORM);
+      setFormData({ name: "", email: "", subject: "", message: "", website: "" });
     } catch (error) {
-      if (error.fields) setFieldErrors(error.fields);
+      if (error.errors) setFieldErrors(error.errors);
       Swal.fire({
-        title: t("contact.errorTitle"),
-        text: error.fields ? t("contact.validation") : error.message || t("contact.errorText"),
-        icon: "error",
+        title: error.code === "duplicate" ? t("contact.dup") : t("contact.fail"),
+        text: error.message,
+        icon: error.code === "duplicate" ? "info" : "error",
         confirmButtonColor: "#6366f1",
       });
     } finally {
@@ -115,10 +106,10 @@ const ContactPage = () => {
             <div className="flex justify-between items-start mb-8">
               <div>
                 <h2 className="text-4xl font-bold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-[#6366f1] to-[#a855f7]">
-                  {t("contact.heading")}
+                  ទាក់ទង
                 </h2>
                 <p className="text-gray-400">
-                  {t("contact.lead")}
+                  មានអ្វីចង់ពិភាក្សាទេ? សូមផ្ញើសារមកខ្ញុំ ហើយតោះនិយាយគ្នា។
                 </p>
               </div>
               <Share2 className="w-10 h-10 text-[#6366f1] opacity-50" />
@@ -137,16 +128,14 @@ const ContactPage = () => {
                 <input
                   type="text"
                   name="name"
-                  placeholder={t("contact.name")}
-                  aria-label={t("contact.name")}
-                  autoComplete="name"
-                  maxLength={100}
+                  placeholder={t("contact.name")} aria-label={t("contact.name")} maxLength={100} autoComplete="name"
                   value={formData.name}
                   onChange={handleChange}
                   disabled={isSubmitting}
                   className="w-full p-4 pl-12 bg-white/10 rounded-xl border border-white/20 placeholder-gray-500 text-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 transition-all duration-300 hover:border-[#6366f1]/30 disabled:opacity-50"
                   required
                 />
+                {fieldErrors.name && <p role="alert" className="text-sm text-red-400 mt-1">{fieldErrors.name}</p>}
               </div>
               <div
                 data-aos="fade-up"
@@ -157,23 +146,21 @@ const ContactPage = () => {
                 <input
                   type="email"
                   name="email"
-                  placeholder={t("contact.email")}
-                  aria-label={t("contact.email")}
-                  autoComplete="email"
-                  maxLength={160}
+                  placeholder={t("contact.email")} aria-label={t("contact.email")} maxLength={200} autoComplete="email"
                   value={formData.email}
                   onChange={handleChange}
                   disabled={isSubmitting}
                   className="w-full p-4 pl-12 bg-white/10 rounded-xl border border-white/20 placeholder-gray-500 text-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 transition-all duration-300 hover:border-[#6366f1]/30 disabled:opacity-50"
                   required
                 />
+                {fieldErrors.email && <p role="alert" className="text-sm text-red-400 mt-1">{fieldErrors.email}</p>}
               </div>
               <div
                 data-aos="fade-up"
                 data-aos-delay="250"
                 className="relative group"
               >
-                <Type className="absolute left-4 top-4 w-5 h-5 text-gray-400 group-focus-within:text-[#6366f1] transition-colors" />
+                <Tag className="absolute left-4 top-4 w-5 h-5 text-gray-400 group-focus-within:text-[#6366f1] transition-colors" />
                 <input
                   type="text"
                   name="subject"
@@ -183,13 +170,10 @@ const ContactPage = () => {
                   value={formData.subject}
                   onChange={handleChange}
                   disabled={isSubmitting}
-                  className="w-full p-4 pl-12 bg-white/10 rounded-xl border border-white/20 placeholder-gray-500 text-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 transition-all duration-300 hover:border-[#6366f1]/30 disabled:opacity-50"
+                  className="w-full p-4 pl-12 bg-white/10 rounded-xl border border-white/20 placeholder-gray-500 text-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 disabled:opacity-50"
                   required
                 />
-              </div>
-              {/* Honeypot: real visitors never see or fill this field */}
-              <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", height: 0, overflow: "hidden" }}>
-                <label>Website<input type="text" name="website" tabIndex={-1} autoComplete="off" value={formData.website} onChange={handleChange} /></label>
+                {fieldErrors.subject && <p role="alert" className="text-sm text-red-400 mt-1">{fieldErrors.subject}</p>}
               </div>
               <div
                 data-aos="fade-up"
@@ -199,15 +183,17 @@ const ContactPage = () => {
                 <MessageSquare className="absolute left-4 top-4 w-5 h-5 text-gray-400 group-focus-within:text-[#6366f1] transition-colors" />
                 <textarea
                   name="message"
-                  placeholder={t("contact.message")}
-                  aria-label={t("contact.message")}
-                  maxLength={5000}
+                  placeholder={t("contact.message")} aria-label={t("contact.message")} maxLength={5000} rows={5}
                   value={formData.message}
                   onChange={handleChange}
                   disabled={isSubmitting}
                   className="w-full resize-none p-4 pl-12 bg-white/10 rounded-xl border border-white/20 placeholder-gray-500 text-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 transition-all duration-300 hover:border-[#6366f1]/30 h-[9.9rem] disabled:opacity-50"
                   required
                 />
+                {fieldErrors.message && <p role="alert" className="text-sm text-red-400 mt-1">{fieldErrors.message}</p>}
+              </div>
+              <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", height: 0, overflow: "hidden" }}>
+                <label>Website<input type="text" name="website" tabIndex={-1} autoComplete="off" value={formData.website} onChange={handleChange} /></label>
               </div>
               <button
                 data-aos="fade-up"
@@ -217,13 +203,8 @@ const ContactPage = () => {
                 className="w-full bg-gradient-to-r from-[#6366f1] to-[#a855f7] text-white py-4 rounded-xl font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-[#6366f1]/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
                 <Send className="w-5 h-5" />
-                {isSubmitting ? t('contact.sending') : t('contact.send')}
+                {isSubmitting ? t("contact.sending") : t("contact.send")}
               </button>
-              {Object.keys(fieldErrors).length > 0 && (
-                <ul className="text-sm text-red-400 space-y-1" role="alert">
-                  {Object.values(fieldErrors).map((m) => <li key={m}>{m}</li>)}
-                </ul>
-              )}
             </form>
 
             <div className="mt-10 pt-6 border-t border-white/10 flex justify-center space-x-6">

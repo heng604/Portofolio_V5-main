@@ -1,14 +1,35 @@
-// Local / VPS entry point:  npm run server   (Vite proxies /api to this port in development)
-import app from './app.js';
-import { getEnvReport } from './env.js';
+import express from 'express';
+import helmet from 'helmet';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
+import { env } from './env.js';
+import { errorHandler, notFoundApi } from './lib/http.js';
+import { router as bakong } from './routes/bakong.js';
+import { router as contact } from './routes/contact.js';
+import { router as adminRoutes } from './routes/admin.js';
 
-const r = getEnvReport();
-if (r.core.length) {
-  console.error(`\n[startup] Missing REQUIRED environment variables: ${r.core.join(', ')}\nCopy .env.example to .env and fill them in (see README).\n`);
-  process.exit(1);
+const app = express();
+app.set('trust proxy', 1); // correct client IPs behind Vercel/Render/nginx for rate limiting
+app.disable('x-powered-by');
+app.use(helmet({ contentSecurityPolicy: false })); // CSP is relaxed: the SPA uses inline styles + Spline/Lottie
+app.use(express.json({ limit: '32kb' }));
+
+app.get('/api/health', (req, res) => res.json({ ok: true, features: env.features, bakongEnv: env.bakong.env }));
+app.use('/api/bakong', bakong);
+app.use('/api/contact', contact);
+app.use('/api/admin', adminRoutes);
+app.use('/api', notFoundApi);
+
+// Production: serve the built SPA from the same origin (no CORS needed).
+const dist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist');
+if (env.isProd && fs.existsSync(dist)) {
+  app.use(express.static(dist));
+  app.get('*', (req, res) => res.sendFile(path.join(dist, 'index.html')));
 }
-if (r.resend.length) console.warn(`[startup] Contact form disabled until set: ${r.resend.join(', ')}`);
-if (r.bakong.length) console.warn(`[startup] Bakong tips disabled until set: ${r.bakong.join(', ')}`);
 
-const port = Number(process.env.PORT) || 3001;
-app.listen(port, () => console.log(`[api] listening on http://localhost:${port}`));
+app.use(errorHandler);
+
+app.listen(env.port, () => {
+  console.log(`[server] http://localhost:${env.port}  (bakong=${env.bakong.env}, features=${JSON.stringify(env.features)})`);
+});

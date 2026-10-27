@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom";
 import { Lock } from "lucide-react";
-import { useLang } from "../i18n/LanguageContext";
+import { useLang } from "../lib/i18n";
 
 const Footer = () => {
-  const { t } = useLang();
   const currentYear = new Date().getFullYear();
+  const { t } = useLang();
 
   return (
     <footer>
@@ -16,14 +16,16 @@ const Footer = () => {
             Theng Seangheng™
           </a>
           . {t("footer.rights")}
+          {/* Small admin entry. Only a link: access is enforced server-side + by database policies. */}
+          <Link
+            to="/login"
+            title={t("footer.admin")}
+            aria-label={t("footer.admin")}
+            className="inline-flex align-middle ml-3 p-1.5 rounded-md text-gray-600 hover:text-indigo-300 hover:bg-white/5 transition-colors"
+          >
+            <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+          </Link>
         </span>
-        <Link
-          to="/login"
-          aria-label="Admin login"
-          className="inline-flex items-center gap-1.5 mb-4 px-3 py-1 rounded-full text-[11px] text-gray-500 border border-white/10 hover:text-white hover:border-indigo-500/40 transition-colors"
-        >
-          <Lock className="w-3 h-3" aria-hidden="true" /> Admin
-        </Link>
       </center>
     </footer>
   );

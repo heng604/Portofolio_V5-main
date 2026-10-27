@@ -1,24 +1,35 @@
+import { env } from '../env.js';
+import { admin } from './supabase.js';
 import { ApiError } from './http.js';
-import { db } from './supabase.js';
-import { getConfig } from '../env.js';
 
-// Admin gate used by every /api/admin/* route. The access token is validated by Supabase Auth
-// (signature + expiry), then the e-mail is compared with ADMIN_EMAIL from the SERVER environment.
-// Anyone else receives a 404-style response so the admin API is not discoverable.
-export async function requireAdmin(req, _res, next) {
+// Validates the Supabase access token SERVER-SIDE (signature + expiry are checked by
+// Supabase Auth), then compares the verified email with ADMIN_EMAIL.
+export async function getUserFromRequest(req) {
+  const h = req.headers.authorization || '';
+  const token = h.startsWith('Bearer ') ? h.slice(7).trim() : '';
+  if (!token) return null;
+  if (!admin) throw new ApiError(503, 'Supabase is not configured on the server.', 'supabase_off');
+  const { data, error } = await admin.auth.getUser(token);
+  if (error || !data?.user) return null;
+  return data.user;
+}
+
+export const isAdminUser = (user) =>
+  !!user &&
+  typeof user.email === 'string' &&
+  user.email.trim().toLowerCase() === env.adminEmail &&
+  // Supabase sets email_confirmed_at once the provider (Google) has verified the address.
+  !!user.email_confirmed_at;
+
+export async function requireAdmin(req, res, next) {
   try {
-    const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
-    if (!token) throw new ApiError(404, 'not_found', 'Not found.');
-    const { data, error } = await db().auth.getUser(token);
-    const user = data?.user;
-    const email = String(user?.email || '').toLowerCase();
-    const confirmed = Boolean(user?.email_confirmed_at || user?.confirmed_at);
-    if (error || !user || !confirmed || email !== getConfig().adminEmail) {
-      throw new ApiError(404, 'not_found', 'Not found.');
-    }
-    req.adminUser = user;
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ ok: false, code: 'unauthenticated', message: 'Sign in required.' });
+    // 404 (not 403) on purpose: do not reveal that an admin area exists.
+    if (!isAdminUser(user)) return res.status(404).json({ ok: false, code: 'not_found', message: 'Not found.' });
+    req.user = user;
     next();
   } catch (e) {
-    next(e instanceof ApiError ? e : new ApiError(404, 'not_found', 'Not found.'));
+    next(e);
   }
 }

@@ -15,7 +15,6 @@ import {
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
-import { toast, confirmDestructive } from "./ui";
 
 const Card = ({ children, className = "" }) => (
   <div className={`relative group ${className}`}>
@@ -95,11 +94,8 @@ const ProjectCard = ({ project, onDelete, onEdit, onTogglePublish, onMove, isFir
             />
           </div>
         )}
-        <h3 className="font-semibold text-white text-sm mb-1 flex items-center gap-2">
+        <h3 className="font-semibold text-white text-sm mb-1">
           {project.Title}
-          <span className={`text-[10px] px-2 py-0.5 rounded-full border ${project.published === false ? "border-gray-500/40 text-gray-400" : "border-green-500/30 text-green-400"}`}>
-            {project.published === false ? "Unpublished" : "Published"}
-          </span>
         </h3>
         {project.Description && (
           <p className="text-gray-400 text-xs mb-3 line-clamp-2 leading-relaxed">
@@ -119,13 +115,6 @@ const ProjectCard = ({ project, onDelete, onEdit, onTogglePublish, onMove, isFir
           </div>
         )}
         <div className="mt-auto flex items-center justify-between gap-2 pt-2 border-t border-white/8">
-          <div className="flex gap-1">
-            <button onClick={() => onMove(project, -1)} disabled={isFirst} aria-label="Move up" className="p-1.5 rounded-lg border border-white/10 text-gray-500 hover:text-white disabled:opacity-30"><ArrowUp className="w-3.5 h-3.5" /></button>
-            <button onClick={() => onMove(project, 1)} disabled={isLast} aria-label="Move down" className="p-1.5 rounded-lg border border-white/10 text-gray-500 hover:text-white disabled:opacity-30"><ArrowDown className="w-3.5 h-3.5" /></button>
-            <button onClick={() => onTogglePublish(project)} aria-label={project.published === false ? "Publish" : "Unpublish"} className="p-1.5 rounded-lg border border-white/10 text-gray-500 hover:text-white">
-              {project.published === false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-            </button>
-          </div>
           <div className="flex gap-2">
             {project.Link && (
               <a
@@ -148,7 +137,15 @@ const ProjectCard = ({ project, onDelete, onEdit, onTogglePublish, onMove, isFir
               </a>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap justify-end">
+            <button onClick={() => onMove(project, -1)} disabled={isFirst} aria-label="Move up" title="Move up"
+              className="p-1.5 rounded-lg border border-white/10 text-gray-400 hover:text-white disabled:opacity-30"><ArrowUp className="w-3.5 h-3.5" /></button>
+            <button onClick={() => onMove(project, 1)} disabled={isLast} aria-label="Move down" title="Move down"
+              className="p-1.5 rounded-lg border border-white/10 text-gray-400 hover:text-white disabled:opacity-30"><ArrowDown className="w-3.5 h-3.5" /></button>
+            <button onClick={() => onTogglePublish(project)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${project.is_published === false ? "border-yellow-500/30 text-yellow-300 hover:bg-yellow-500/10" : "border-green-500/30 text-green-300 hover:bg-green-500/10"}`}>
+              {project.is_published === false ? <><EyeOff className="w-3 h-3" /> Unpublished</> : <><Eye className="w-3 h-3" /> Published</>}
+            </button>
             <button
               onClick={() => onEdit(project)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-500/25 text-indigo-400 hover:bg-indigo-500/10 text-xs transition-colors"
@@ -381,9 +378,7 @@ export default function Projects() {
     setUploading(true);
     let imgUrl = "";
     if (file) imgUrl = await uploadImage(file);
-    const { error: insertError } = await supabase.from("projects").insert({
-      sort_order: projects.length + 1,
-      published: true,
+    await supabase.from("projects").insert({
       Title: form.Title,
       Description: form.Description,
       Img: imgUrl,
@@ -396,8 +391,6 @@ export default function Projects() {
       Link: form.Link,
       Github: form.Github,
     });
-    if (insertError) toast("error", insertError.message);
-    else toast("success", "Project created");
     setShowCreate(false);
     setUploading(false);
     fetchProjects();
@@ -428,34 +421,31 @@ export default function Projects() {
     fetchProjects();
   };
 
-  const togglePublish = async (p) => {
-    const next = p.published === false;
-    const { error } = await supabase.from("projects").update({ published: next }).eq("id", p.id);
-    if (error) return toast("error", error.message);
-    toast("success", next ? "Project published" : "Project unpublished");
+  const deleteProject = async (id) => {
+    if (!confirm("Delete this project? This cannot be undone.")) return;
+    const { error } = await supabase.from("projects").delete().eq("id", id);
+    if (error) alert(`Delete failed: ${error.message}`);
     fetchProjects();
   };
 
-  // Swap sort_order with the neighbour; renumber everything so order is always 1..n
-  const moveProject = async (p, dir) => {
-    const idx = projects.findIndex((x) => x.id === p.id);
+  const togglePublish = async (project) => {
+    const { error } = await supabase.from("projects").update({ is_published: project.is_published === false }).eq("id", project.id);
+    if (error) alert(`Update failed: ${error.message}`);
+    fetchProjects();
+  };
+
+  // Re-number the whole list (0..n-1) then swap with the neighbour, so ties never break ordering.
+  const moveProject = async (project, dir) => {
+    const idx = projects.findIndex((p) => p.id === project.id);
     const j = idx + dir;
-    if (j < 0 || j >= projects.length) return;
-    const reordered = [...projects];
-    [reordered[idx], reordered[j]] = [reordered[j], reordered[idx]];
+    if (idx < 0 || j < 0 || j >= projects.length) return;
+    const next = [...projects];
+    [next[idx], next[j]] = [next[j], next[idx]];
     const results = await Promise.all(
-      reordered.map((x, i) => supabase.from("projects").update({ sort_order: i + 1 }).eq("id", x.id))
+      next.map((p, i) => supabase.from("projects").update({ sort_order: i }).eq("id", p.id))
     );
     const failed = results.find((r) => r.error);
-    if (failed) return toast("error", failed.error.message);
-    fetchProjects();
-  };
-
-  const deleteProject = async (id) => {
-    if (!(await confirmDestructive("Delete this project?", "This cannot be undone."))) return;
-    const { error } = await supabase.from("projects").delete().eq("id", id);
-    if (error) return toast("error", error.message);
-    toast("success", "Project deleted");
+    if (failed) alert(`Reorder failed: ${failed.error.message}`);
     fetchProjects();
   };
 
