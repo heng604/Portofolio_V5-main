@@ -40,12 +40,12 @@ const localProjects = [
 ];
 
 // Combine local projects with remote (Supabase) ones, skipping duplicates by title.
+// supabase/schema.sql seeds these same projects into the database, so once the database has rows
+// the admin controls them (edit / unpublish / reorder / delete). The local list is only a fallback
+// for when Supabase is unreachable or the database has no projects yet.
 export const mergeProjects = (remote = []) => {
-  const remoteTitles = new Set(remote.map((p) => (p.Title || "").toLowerCase()));
-  const extras = localProjects.filter(
-    (p) => !remoteTitles.has(p.Title.toLowerCase())
-  );
-  return [...extras, ...remote];
+  if (remote.length > 0) return remote;
+  return localProjects;
 };
 
 export default localProjects;

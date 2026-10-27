@@ -1,6 +1,14 @@
-import { useEffect, useState } from 'react';
-export default function LanguageToggle() {
-  const [language, setLanguage] = useState(() => localStorage.getItem('portfolio-language') || 'en');
-  useEffect(() => { document.documentElement.lang = language === 'km' ? 'km' : 'en'; localStorage.setItem('portfolio-language', language); window.dispatchEvent(new CustomEvent('portfolio-language-change', { detail: language })); }, [language]);
-  return <div className="fixed right-3 top-24 z-40 flex rounded-full border border-white/15 bg-[#0a0a1a]/90 p-1 shadow-xl backdrop-blur" aria-label="Choose language"><button aria-pressed={language === 'en'} onClick={() => setLanguage('en')} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${language === 'en' ? 'bg-indigo-500 text-white' : 'text-gray-300'}`}>EN</button><button aria-pressed={language === 'km'} onClick={() => setLanguage('km')} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${language === 'km' ? 'bg-indigo-500 text-white' : 'text-gray-300'}`}>ខ្មែរ</button></div>;
+import { useLang } from '../i18n/LanguageContext'
+
+export default function LanguageToggle({ className = '' }) {
+  const { lang, setLang, t } = useLang()
+  const base = 'px-3 py-1 text-xs font-semibold rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400'
+  return (
+    <div role="group" aria-label={t('lang.label')} className={`inline-flex items-center gap-1 p-1 rounded-full bg-white/5 border border-white/10 ${className}`}>
+      <button type="button" onClick={() => setLang('en')} aria-pressed={lang === 'en'}
+        className={`${base} ${lang === 'en' ? 'bg-gradient-to-r from-[#6366f1] to-[#a855f7] text-white' : 'text-gray-300 hover:text-white'}`}>EN</button>
+      <button type="button" onClick={() => setLang('km')} aria-pressed={lang === 'km'}
+        className={`${base} ${lang === 'km' ? 'bg-gradient-to-r from-[#6366f1] to-[#a855f7] text-white' : 'text-gray-300 hover:text-white'}`}>ខ្មែរ</button>
+    </div>
+  )
 }

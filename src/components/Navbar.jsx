@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Lock } from "lucide-react";
+import { Link } from "react-router-dom";
+import LanguageToggle from "./LanguageToggle";
+import { useLang } from "../i18n/LanguageContext";
 
 const Navbar = () => {
+    const { t } = useLang();
     const [isOpen, setIsOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [activeSection, setActiveSection] = useState("Home");
     
     const navItems = [
-        { href: "#Home", label: "Home" },
-        { href: "#About", label: "About" },
-        { href: "#Portofolio", label: "Portofolio" },
-        { href: "#Contact", label: "Contact" },
+        { href: "#Home", label: t("nav.home") },
+        { href: "#About", label: t("nav.about") },
+        { href: "#Portofolio", label: t("nav.portfolio") },
+        { href: "#Tip", label: t("nav.support") },
+        { href: "#Contact", label: t("nav.contact") },
     ];
 
     useEffect(() => {
@@ -116,13 +121,21 @@ const Navbar = () => {
                                     />
                                 </a>
                             ))}
+                            <LanguageToggle />
+                            <Link to="/login" aria-label="Admin login" title="Admin login"
+                                className="p-2 rounded-full border border-white/10 text-gray-400 hover:text-white hover:border-indigo-500/40 transition-colors">
+                                <Lock className="w-4 h-4" />
+                            </Link>
                         </div>
                     </div>
         
                     {/* Mobile Menu Button */}
-                    <div className="md:hidden">
+                    <div className="md:hidden flex items-center gap-2">
+                        <LanguageToggle />
                         <button
                             onClick={() => setIsOpen(!isOpen)}
+                            aria-label={isOpen ? "Close menu" : "Open menu"}
+                            aria-expanded={isOpen}
                             className={`relative p-2 text-[#e2d3fd] hover:text-white transition-transform duration-300 ease-in-out transform ${
                                 isOpen ? "rotate-90 scale-125" : "rotate-0 scale-100"
                             }`}

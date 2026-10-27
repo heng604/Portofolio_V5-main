@@ -4,17 +4,26 @@ import { supabase } from '../supabase'
 import Projects from './dashboard/Projects'
 import Certificates from './dashboard/Certificates'
 import Comments from './dashboard/Comments'
-import BakongTools from './dashboard/BakongTools'
-import { FolderGit2, Award, MessageSquare, LogOut, LayoutDashboard, Menu, QrCode } from 'lucide-react'
+import Messages from './dashboard/Messages'
+import Payments from './dashboard/Payments'
+import Settings from './dashboard/Settings'
+import Translations from './dashboard/Translations'
+import LanguageToggle from '../components/LanguageToggle'
+import { useLang } from '../i18n/LanguageContext'
+import { FolderGit2, Award, MessageSquare, LogOut, LayoutDashboard, Menu, Inbox, CreditCard, Settings as SettingsIcon, Languages } from 'lucide-react'
 
 const NAV_ITEMS = [
-  { to: 'projects', label: 'Projects', icon: FolderGit2 },
-  { to: 'certificates', label: 'Certificates', icon: Award },
-  { to: 'comments', label: 'Comments', icon: MessageSquare },
-  { to: 'bakong', label: 'Bakong KHQR', icon: QrCode },
+  { to: 'projects', label: 'dash.projects', icon: FolderGit2 },
+  { to: 'certificates', label: 'dash.certificates', icon: Award },
+  { to: 'comments', label: 'dash.comments', icon: MessageSquare },
+  { to: 'messages', label: 'dash.messages', icon: Inbox },
+  { to: 'payments', label: 'dash.payments', icon: CreditCard },
+  { to: 'settings', label: 'dash.settings', icon: SettingsIcon },
+  { to: 'translations', label: 'dash.translations', icon: Languages },
 ]
 
 export default function Dashboard() {
+  const { t } = useLang()
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -63,12 +72,14 @@ export default function Dashboard() {
               }`}
             >
               <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-indigo-400' : ''}`} />
-              {label}
+              {t(label)}
               {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-400" />}
             </Link>
           )
         })}
       </nav>
+
+      <LanguageToggle className="self-start" />
 
       {/* Logout */}
       <button
@@ -76,7 +87,7 @@ export default function Dashboard() {
         className="shrink-0 flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-500 hover:text-red-400 hover:bg-red-500/5 border border-transparent hover:border-red-500/15 transition-all duration-200 text-sm"
       >
         <LogOut className="w-4 h-4 shrink-0" />
-        Sign Out
+        {t('dash.signout')}
       </button>
     </div>
   )
@@ -129,7 +140,10 @@ export default function Dashboard() {
             <Route path="projects" element={<Projects />} />
             <Route path="certificates" element={<Certificates />} />
             <Route path="comments" element={<Comments />} />
-            <Route path="bakong" element={<BakongTools />} />
+            <Route path="messages" element={<Messages />} />
+            <Route path="payments" element={<Payments />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="translations" element={<Translations />} />
           </Routes>
         </main>
       </div>

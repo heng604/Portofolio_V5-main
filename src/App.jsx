@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import React, { useState, lazy, Suspense } from "react";
-import { HelmetProvider } from "react-helmet-async";
+import { HelmetProvider, Helmet } from "react-helmet-async";
+import { useSiteSettings } from "./context/useSiteSettings";
 import "./index.css";
 import Navbar from "./components/Navbar";
 import Home from "./Pages/Home";
@@ -8,8 +9,6 @@ import About from "./Pages/About";
 import AnimatedBackground from "./components/Background";
 import { AnimatePresence } from "framer-motion";
 import Footer from "./components/Footer";
-import TipJar from "./components/donation/TipJar";
-import LanguageToggle from "./components/LanguageToggle";
 
 import Login from "./Pages/Login";
 import Dashboard from "./Pages/Dashboard";
@@ -20,10 +19,19 @@ const ContactPage = lazy(() => import("./Pages/Contact"));
 const ProjectDetails = lazy(() => import("./components/ProjectDetail"));
 const WelcomeScreen = lazy(() => import("./Pages/WelcomeScreen"));
 const NotFoundPage = lazy(() => import("./Pages/404"));
+const TipJar = lazy(() => import("./components/TipJar"));
 
 const LandingPage = ({ showWelcome, setShowWelcome }) => {
+  const { get: setting } = useSiteSettings();
   return (
     <>
+      <Helmet>
+        {setting("seo.title") && <title>{setting("seo.title")}</title>}
+        {setting("seo.description") && <meta name="description" content={setting("seo.description")} />}
+        {setting("seo.title") && <meta property="og:title" content={setting("seo.title")} />}
+        {setting("seo.description") && <meta property="og:description" content={setting("seo.description")} />}
+        {setting("seo.image") && <meta property="og:image" content={setting("seo.image")} />}
+      </Helmet>
       <AnimatePresence mode="wait">
         {showWelcome && (
           <Suspense fallback={null}>
@@ -38,9 +46,9 @@ const LandingPage = ({ showWelcome, setShowWelcome }) => {
       
           <Home />
           <About />
-          <TipJar />
           <Suspense fallback={<div className="h-20" />}>
             <Portofolio />
+            <TipJar />
             <ContactPage />
           </Suspense>
           <Footer />
@@ -68,7 +76,6 @@ function App() {
       <div className="pointer-events-none">
   <AnimatedBackground />
 </div>
-      <LanguageToggle />
       <BrowserRouter>
         <Routes>
           {/* PUBLIC */}

@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 
 import { supabase } from "../supabase"; 
 
 import PropTypes from "prop-types";
+import SwipeableViews from "react-swipeable-views";
 import { useTheme } from "@mui/material/styles";
 import AppBar from "@mui/material/AppBar";
 import Tabs from "@mui/material/Tabs";
@@ -103,34 +104,59 @@ function a11yProps(index) {
   };
 }
 
-// techStacks tetap sama
-const techStacks = [
-  { icon: "html.svg", language: "HTML" },
-  { icon: "css.svg", language: "CSS" },
-  { icon: "javascript.svg", language: "JavaScript" },
-  { icon: "tailwind.svg", language: "Tailwind CSS" },
-  { icon: "reactjs.svg", language: "ReactJS" },
-  { icon: "vite.svg", language: "Vite" },
-  { icon: "nodejs.svg", language: "Node JS" },
-  { icon: "bootstrap.svg", language: "Bootstrap" },
-  { icon: "firebase.svg", language: "Firebase" },
-  { icon: "MUI.svg", language: "Material UI" },
-  { icon: "vercel.svg", language: "Vercel" },
-  { icon: "SweetAlert.svg", language: "SweetAlert2" },
+const techStackGroups = [
+  {
+    title: "Web Development",
+    items: [
+      { icon: "html.svg", language: "HTML" },
+      { icon: "css.svg", language: "CSS" },
+      { icon: "javascript.svg", language: "JavaScript" },
+      { icon: "tailwind.svg", language: "Tailwind CSS" },
+      { icon: "reactjs.svg", language: "ReactJS" },
+      { icon: "vite.svg", language: "Vite" },
+      { icon: "nodejs.svg", language: "Node JS" },
+      { icon: "bootstrap.svg", language: "Bootstrap" },
+      { icon: "firebase.svg", language: "Firebase" },
+      { icon: "vercel.svg", language: "Vercel" },
+      { icon: "python.svg", language: "Python" },
+      { icon: "git.svg", language: "Git" },
+      { icon: "github.svg", language: "GitHub" },
+    ],
+  },
+  {
+    title: "Cyber Security Tools",
+    items: [
+      { icon: "kalilinux.svg", language: "Kali Linux" },
+      { icon: "nmap.svg", language: "Nmap" },
+      { icon: "wireshark.svg", language: "Wireshark" },
+      { icon: "metasploit.svg", language: "Metasploit" },
+      { icon: "burpsuite.svg", language: "Burp Suite" },
+      { icon: "nessus.svg", language: "Nessus" },
+      { icon: "bash.svg", language: "Bash" },
+      { icon: "powershell.svg", language: "PowerShell" },
+    ],
+  },
+  {
+    title: "Networking Tools & Platforms",
+    items: [
+      { icon: "cisco.svg", language: "Cisco Packet Tracer" },
+      { icon: "gns3.svg", language: "GNS3" },
+      { icon: "mikrotik.svg", language: "MikroTik" },
+      { icon: "pfsense.svg", language: "pfSense" },
+      { icon: "opnsense.svg", language: "OPNsense" },
+      { icon: "openvpn.svg", language: "OpenVPN" },
+      { icon: "cloudflare.svg", language: "Cloudflare" },
+      { icon: "virtualbox.svg", language: "VirtualBox" },
+      { icon: "vmware.svg", language: "VMware" },
+      { icon: "linux.svg", language: "Linux" },
+      { icon: "ubuntu.svg", language: "Ubuntu" },
+    ],
+  },
 ];
 
 export default function FullWidthTabs() {
   const theme = useTheme();
   const [value, setValue] = useState(0);
-  const touchStartX = useRef(null);
-  const handleTouchStart = (event) => { touchStartX.current = event.touches?.[0]?.clientX ?? null; };
-  const handleTouchEnd = (event) => {
-    if (touchStartX.current === null) return;
-    const endX = event.changedTouches?.[0]?.clientX;
-    const delta = endX - touchStartX.current;
-    if (Math.abs(delta) > 60) setValue((current) => Math.max(0, Math.min(2, current + (delta < 0 ? 1 : -1))));
-    touchStartX.current = null;
-  };
   const [projects, setProjects] = useState([]);
   const [certificates, setCertificates] = useState(localCertificates);
   const [showAllProjects, setShowAllProjects] = useState(false);
@@ -148,7 +174,7 @@ export default function FullWidthTabs() {
   const fetchData = useCallback(async () => {
     try {
       // Mengambil data dari Supabase secara paralel
-      const projectsResponse = await supabase.from("projects").select("*").order('id', { ascending: false });
+      const projectsResponse = await supabase.from("projects").select("*").eq("published", true).order("sort_order", { ascending: true }).order("id", { ascending: false });
 
       // Error handling untuk setiap request
       if (projectsResponse.error) throw projectsResponse.error;
@@ -313,7 +339,11 @@ export default function FullWidthTabs() {
           </Tabs>
         </AppBar>
 
-        <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} className="min-w-0">
+        <SwipeableViews
+          axis={theme.direction === "rtl" ? "x-reverse" : "x"}
+          index={value}
+          onChangeIndex={setValue}
+        >
           <TabPanel value={value} index={0} dir={theme.direction}>
             <div className="container mx-auto flex justify-center items-center overflow-hidden">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-3 gap-5">
@@ -369,21 +399,32 @@ export default function FullWidthTabs() {
           </TabPanel>
 
           <TabPanel value={value} index={2} dir={theme.direction}>
-            <div className="container mx-auto flex justify-center items-center overflow-hidden pb-[5%]">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 lg:gap-8 gap-5">
-                {techStacks.map((stack, index) => (
-                  <div
-                    key={index}
-                    data-aos={index % 3 === 0 ? "fade-up-right" : index % 3 === 1 ? "fade-up" : "fade-up-left"}
-                    data-aos-duration={index % 3 === 0 ? "1000" : index % 3 === 1 ? "1200" : "1000"}
+            <div className="container mx-auto flex flex-col gap-10 overflow-hidden pb-[5%]">
+              {techStackGroups.map((group) => (
+                <div key={group.title}>
+                  <h3
+                    className="text-lg md:text-xl font-semibold text-white mb-5 flex items-center gap-2"
+                    data-aos="fade-right"
                   >
-                    <TechStackIcon TechStackIcon={stack.icon} Language={stack.language} />
+                    <span className="inline-block w-8 h-1 bg-indigo-500 rounded-full"></span>
+                    {group.title}
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 lg:gap-8 gap-5">
+                    {group.items.map((stack, index) => (
+                      <div
+                        key={stack.language}
+                        data-aos={index % 3 === 0 ? "fade-up-right" : index % 3 === 1 ? "fade-up" : "fade-up-left"}
+                        data-aos-duration={index % 3 === 0 ? "1000" : index % 3 === 1 ? "1200" : "1000"}
+                      >
+                        <TechStackIcon TechStackIcon={stack.icon} Language={stack.language} />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           </TabPanel>
-        </div>
+        </SwipeableViews>
       </Box>
     </div>
   );

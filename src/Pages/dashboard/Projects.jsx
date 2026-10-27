@@ -10,7 +10,12 @@ import {
   ExternalLink,
   Github,
   Pencil,
+  Eye,
+  EyeOff,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
+import { toast, confirmDestructive } from "./ui";
 
 const Card = ({ children, className = "" }) => (
   <div className={`relative group ${className}`}>
@@ -71,7 +76,7 @@ const SkeletonCard = () => (
   </div>
 );
 
-const ProjectCard = ({ project, onDelete, onEdit }) => {
+const ProjectCard = ({ project, onDelete, onEdit, onTogglePublish, onMove, isFirst, isLast }) => {
   const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
@@ -90,8 +95,11 @@ const ProjectCard = ({ project, onDelete, onEdit }) => {
             />
           </div>
         )}
-        <h3 className="font-semibold text-white text-sm mb-1">
+        <h3 className="font-semibold text-white text-sm mb-1 flex items-center gap-2">
           {project.Title}
+          <span className={`text-[10px] px-2 py-0.5 rounded-full border ${project.published === false ? "border-gray-500/40 text-gray-400" : "border-green-500/30 text-green-400"}`}>
+            {project.published === false ? "Unpublished" : "Published"}
+          </span>
         </h3>
         {project.Description && (
           <p className="text-gray-400 text-xs mb-3 line-clamp-2 leading-relaxed">
@@ -111,6 +119,13 @@ const ProjectCard = ({ project, onDelete, onEdit }) => {
           </div>
         )}
         <div className="mt-auto flex items-center justify-between gap-2 pt-2 border-t border-white/8">
+          <div className="flex gap-1">
+            <button onClick={() => onMove(project, -1)} disabled={isFirst} aria-label="Move up" className="p-1.5 rounded-lg border border-white/10 text-gray-500 hover:text-white disabled:opacity-30"><ArrowUp className="w-3.5 h-3.5" /></button>
+            <button onClick={() => onMove(project, 1)} disabled={isLast} aria-label="Move down" className="p-1.5 rounded-lg border border-white/10 text-gray-500 hover:text-white disabled:opacity-30"><ArrowDown className="w-3.5 h-3.5" /></button>
+            <button onClick={() => onTogglePublish(project)} aria-label={project.published === false ? "Publish" : "Unpublish"} className="p-1.5 rounded-lg border border-white/10 text-gray-500 hover:text-white">
+              {project.published === false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+            </button>
+          </div>
           <div className="flex gap-2">
             {project.Link && (
               <a
@@ -343,6 +358,7 @@ export default function Projects() {
     const { data } = await supabase
       .from("projects")
       .select("*")
+      .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
     setProjects(data || []);
     setLoading(false);
@@ -365,7 +381,9 @@ export default function Projects() {
     setUploading(true);
     let imgUrl = "";
     if (file) imgUrl = await uploadImage(file);
-    await supabase.from("projects").insert({
+    const { error: insertError } = await supabase.from("projects").insert({
+      sort_order: projects.length + 1,
+      published: true,
       Title: form.Title,
       Description: form.Description,
       Img: imgUrl,
@@ -378,6 +396,8 @@ export default function Projects() {
       Link: form.Link,
       Github: form.Github,
     });
+    if (insertError) toast("error", insertError.message);
+    else toast("success", "Project created");
     setShowCreate(false);
     setUploading(false);
     fetchProjects();
@@ -408,9 +428,34 @@ export default function Projects() {
     fetchProjects();
   };
 
+  const togglePublish = async (p) => {
+    const next = p.published === false;
+    const { error } = await supabase.from("projects").update({ published: next }).eq("id", p.id);
+    if (error) return toast("error", error.message);
+    toast("success", next ? "Project published" : "Project unpublished");
+    fetchProjects();
+  };
+
+  // Swap sort_order with the neighbour; renumber everything so order is always 1..n
+  const moveProject = async (p, dir) => {
+    const idx = projects.findIndex((x) => x.id === p.id);
+    const j = idx + dir;
+    if (j < 0 || j >= projects.length) return;
+    const reordered = [...projects];
+    [reordered[idx], reordered[j]] = [reordered[j], reordered[idx]];
+    const results = await Promise.all(
+      reordered.map((x, i) => supabase.from("projects").update({ sort_order: i + 1 }).eq("id", x.id))
+    );
+    const failed = results.find((r) => r.error);
+    if (failed) return toast("error", failed.error.message);
+    fetchProjects();
+  };
+
   const deleteProject = async (id) => {
-    if (!confirm("Delete this project?")) return;
-    await supabase.from("projects").delete().eq("id", id);
+    if (!(await confirmDestructive("Delete this project?", "This cannot be undone."))) return;
+    const { error } = await supabase.from("projects").delete().eq("id", id);
+    if (error) return toast("error", error.message);
+    toast("success", "Project deleted");
     fetchProjects();
   };
 
@@ -490,12 +535,16 @@ export default function Projects() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {projects.map((project) => (
+          {projects.map((project, i) => (
             <ProjectCard
               key={project.id}
               project={project}
               onDelete={deleteProject}
               onEdit={setEditProject}
+              onTogglePublish={togglePublish}
+              onMove={moveProject}
+              isFirst={i === 0}
+              isLast={i === projects.length - 1}
             />
           ))}
         </div>

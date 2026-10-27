@@ -11,7 +11,7 @@ const TechStackIcon = ({ TechStackIcon, Language }) => {
           className="relative h-16 w-16 md:h-20 md:w-20 transform transition-transform duration-300"
         />
       </div>
-      <span className="text-slate-300 font-semibold text-sm md:text-base tracking-wide group-hover:text-white transition-colors duration-300">
+      <span className="text-slate-300 font-semibold text-sm md:text-base tracking-wide text-center group-hover:text-white transition-colors duration-300">
         {Language}
       </span>
     </div>

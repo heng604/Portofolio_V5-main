@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { Share2, User, Mail, MessageSquare, Send } from "lucide-react";
+import { Link } from "react-router-dom";
 import SocialLinks from "../components/SocialLinks";
 import Komentar from "../components/Commentar";
 import Swal from "sweetalert2";
 import AOS from "aos";
 import "aos/dist/aos.css";
+import { apiFetch } from "../utils/api";
+import { useLang } from "../i18n/LanguageContext";
+import { Type } from "lucide-react";
+
+const EMPTY_FORM = { name: "", email: "", subject: "", message: "", website: "" };
 
 const ContactPage = () => {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    subject: "",
-    message: "",
-  });
+  const { t } = useLang();
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -31,20 +34,43 @@ const ContactPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
+    if (isSubmitting) return; // prevent duplicate submissions
     setIsSubmitting(true);
+    setFieldErrors({});
+
+    Swal.fire({
+      title: t("contact.sending"),
+      html: t("contact.sendingHtml"),
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      },
+    });
+
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ""}/api/contact`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, website: "" }),
+      // Server validates/sanitises, rate-limits, stores in Supabase and sends through Resend.
+      await apiFetch("/api/contact", { method: "POST", body: formData });
+
+      Swal.fire({
+        title: t("contact.success"),
+        text: t("contact.successText"),
+        icon: "success",
+        confirmButtonColor: "#6366f1",
+        timer: 2500,
+        timerProgressBar: true,
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Unable to send your message.");
-      await Swal.fire({ title: "ជោគជ័យ!", text: "សាររបស់អ្នកត្រូវបានផ្ញើដោយជោគជ័យ!", icon: "success", confirmButtonColor: "#6366f1" });
-      setFormData({ name: "", email: "", subject: "", message: "" });
+      setFormData(EMPTY_FORM);
     } catch (error) {
-      Swal.fire({ title: "បរាជ័យ!", text: error.message || "មានបញ្ហាកើតឡើង។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។", icon: "error", confirmButtonColor: "#6366f1" });
-    } finally { setIsSubmitting(false); }
+      if (error.fields) setFieldErrors(error.fields);
+      Swal.fire({
+        title: t("contact.errorTitle"),
+        text: error.fields ? t("contact.validation") : error.message || t("contact.errorText"),
+        icon: "error",
+        confirmButtonColor: "#6366f1",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -65,7 +91,7 @@ const ContactPage = () => {
               WebkitTextFillColor: "transparent",
             }}
           >
-            ទាក់ទងខ្ញុំ
+            {t("contact.title")}
           </span>
         </h2>
         <p
@@ -73,7 +99,7 @@ const ContactPage = () => {
           data-aos-duration="1100"
           className="text-slate-400 max-w-2xl mx-auto text-sm md:text-base mt-2"
         >
-          មានសំណួរមែនទេ? សូមផ្ញើសារមកខ្ញុំ ហើយខ្ញុំនឹងឆ្លើយតបជូនក្នុងពេលឆាប់ៗ។
+          {t("contact.subtitle")}
         </p>
       </div>
 
@@ -89,10 +115,10 @@ const ContactPage = () => {
             <div className="flex justify-between items-start mb-8">
               <div>
                 <h2 className="text-4xl font-bold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-[#6366f1] to-[#a855f7]">
-                  ទាក់ទង
+                  {t("contact.heading")}
                 </h2>
                 <p className="text-gray-400">
-                  មានអ្វីចង់ពិភាក្សាទេ? សូមផ្ញើសារមកខ្ញុំ ហើយតោះនិយាយគ្នា។
+                  {t("contact.lead")}
                 </p>
               </div>
               <Share2 className="w-10 h-10 text-[#6366f1] opacity-50" />
@@ -111,7 +137,10 @@ const ContactPage = () => {
                 <input
                   type="text"
                   name="name"
-                  placeholder="ឈ្មោះរបស់អ្នក"
+                  placeholder={t("contact.name")}
+                  aria-label={t("contact.name")}
+                  autoComplete="name"
+                  maxLength={100}
                   value={formData.name}
                   onChange={handleChange}
                   disabled={isSubmitting}
@@ -128,7 +157,10 @@ const ContactPage = () => {
                 <input
                   type="email"
                   name="email"
-                  placeholder="អ៊ីមែលរបស់អ្នក"
+                  placeholder={t("contact.email")}
+                  aria-label={t("contact.email")}
+                  autoComplete="email"
+                  maxLength={160}
                   value={formData.email}
                   onChange={handleChange}
                   disabled={isSubmitting}
@@ -136,8 +168,28 @@ const ContactPage = () => {
                   required
                 />
               </div>
-              <div data-aos="fade-up" data-aos-delay="250" className="relative group">
-                <input type="text" name="subject" placeholder="ប្រធានបទ / Subject" value={formData.subject} onChange={handleChange} disabled={isSubmitting} required maxLength={160} className="w-full p-4 bg-white/10 rounded-xl border border-white/20 placeholder-gray-500 text-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 disabled:opacity-50" />
+              <div
+                data-aos="fade-up"
+                data-aos-delay="250"
+                className="relative group"
+              >
+                <Type className="absolute left-4 top-4 w-5 h-5 text-gray-400 group-focus-within:text-[#6366f1] transition-colors" />
+                <input
+                  type="text"
+                  name="subject"
+                  placeholder={t("contact.subject")}
+                  aria-label={t("contact.subject")}
+                  maxLength={150}
+                  value={formData.subject}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  className="w-full p-4 pl-12 bg-white/10 rounded-xl border border-white/20 placeholder-gray-500 text-white focus:outline-none focus:ring-2 focus:ring-[#6366f1]/30 transition-all duration-300 hover:border-[#6366f1]/30 disabled:opacity-50"
+                  required
+                />
+              </div>
+              {/* Honeypot: real visitors never see or fill this field */}
+              <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", height: 0, overflow: "hidden" }}>
+                <label>Website<input type="text" name="website" tabIndex={-1} autoComplete="off" value={formData.website} onChange={handleChange} /></label>
               </div>
               <div
                 data-aos="fade-up"
@@ -147,7 +199,9 @@ const ContactPage = () => {
                 <MessageSquare className="absolute left-4 top-4 w-5 h-5 text-gray-400 group-focus-within:text-[#6366f1] transition-colors" />
                 <textarea
                   name="message"
-                  placeholder="សាររបស់អ្នក"
+                  placeholder={t("contact.message")}
+                  aria-label={t("contact.message")}
+                  maxLength={5000}
                   value={formData.message}
                   onChange={handleChange}
                   disabled={isSubmitting}
@@ -163,8 +217,13 @@ const ContactPage = () => {
                 className="w-full bg-gradient-to-r from-[#6366f1] to-[#a855f7] text-white py-4 rounded-xl font-semibold transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-[#6366f1]/20 active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
                 <Send className="w-5 h-5" />
-                {isSubmitting ? 'កំពុងផ្ញើ...' : 'ផ្ញើសារ'}
+                {isSubmitting ? t('contact.sending') : t('contact.send')}
               </button>
+              {Object.keys(fieldErrors).length > 0 && (
+                <ul className="text-sm text-red-400 space-y-1" role="alert">
+                  {Object.values(fieldErrors).map((m) => <li key={m}>{m}</li>)}
+                </ul>
+              )}
             </form>
 
             <div className="mt-10 pt-6 border-t border-white/10 flex justify-center space-x-6">

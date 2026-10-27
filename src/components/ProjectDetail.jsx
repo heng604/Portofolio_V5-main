@@ -156,7 +156,7 @@ const ProjectDetails = () => {
     );
   }
 
-  const projectUrl = `https://ekizr.com/project/${toSlug(project.Title)}`;
+  const projectUrl = `https://masatoshi.com/project/${toSlug(project.Title)}`;
 
   return (
     <>
@@ -193,7 +193,7 @@ const ProjectDetails = () => {
             "author": {
               "@type": "Person",
               "name": "Theng Seangheng",
-              "url": "https://ekizr.com"
+              "url": "https://masatoshi.com"
             }
           }
         `}</script>

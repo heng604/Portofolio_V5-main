@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import {
-  Linkedin,
+  Facebook,
   Github,
   Instagram,
   Youtube,
@@ -9,33 +9,34 @@ import {
 import AOS from "aos";
 import "aos/dist/aos.css";
 import PresenceWidget from "./PresenceWidget";
+import { useSiteSettings } from "../context/useSiteSettings";
 
 const socialLinks = [
   {
-    name: "LinkedIn",
+    name: "Facebook",
     displayName: "Let's Connect",
-    subText: "on LinkedIn",
-    icon: Linkedin,
-    url: "https://www.linkedin.com/in/ekizr/",
-    color: "#0A66C2",
-    gradient: "from-[#0A66C2] to-[#0077B5]",
+    subText: "on Facebook",
+    icon: Facebook,
+    url: "https://www.facebook.com/Masatoshi56566",
+    color: "#1877F2",
+    gradient: "from-[#1877F2] to-[#0A5BD3]",
     isPrimary: true,
   },
   {
     name: "Instagram",
     displayName: "Instagram",
-    subText: "@ekizr_",
+    subText: "@wtoto_58",
     icon: Instagram,
-    url: "https://www.instagram.com/ekizr_/?hl=id",
+    url: "https://www.instagram.com/wtoto_58/#",
     color: "#E4405F",
     gradient: "from-[#833AB4] via-[#E4405F] to-[#FCAF45]",
   },
   {
     name: "YouTube",
     displayName: "Youtube",
-    subText: "@eki zulfar",
+    subText: "@thengseangheng76",
     icon: Youtube,
-    url: "https://www.youtube.com/@eki_zulfar",
+    url: "https://www.youtube.com/@thengseangheng76",
     color: "#FF0000",
     gradient: "from-[#FF0000] to-[#CC0000]",
   },
@@ -51,7 +52,7 @@ const socialLinks = [
   {
     name: "TikTok",
     displayName: "Tiktok",
-    subText: "@eki_zulfar",
+    subText: "@wiwwiw0002",
     icon: ({ className, ...props }) => (
       <svg
         width="24px"
@@ -59,7 +60,7 @@ const socialLinks = [
         viewBox="0 0 45 45"
         version="1.1"
         xmlns="http://www.w3.org/2000/svg"
-        xmlnsXlink="http://www.w3.org/1999/xlink"
+        xmlnsXlink="https://www.tiktok.com/@wiwwiw0002?is_from_webapp=1&sender_device=pc"
       >
         <title>Tiktok</title>
         <g
@@ -89,15 +90,20 @@ const socialLinks = [
         </g>
       </svg>
     ),
-    url: "https://tiktok.com/@eki_zulfar",
+    url: "https://tiktok.com/@wiwwiw0002",
     color: "black",
     gradient: "from-[#000000] via-[#25F4EE] to-[#FE2C55]",
   },
 ];
 
+const SETTING_KEYS = { Facebook: "social.facebook", Instagram: "social.instagram", GitHub: "social.github" };
+
 const SocialLinks = () => {
-  const linkedIn = socialLinks.find((link) => link.isPrimary);
-  const otherLinks = socialLinks.filter((link) => !link.isPrimary);
+  const { get: setting } = useSiteSettings();
+  // URLs saved in Dashboard > Settings override the built-in defaults; empty settings keep the originals.
+  const links = socialLinks.map((l) => (SETTING_KEYS[l.name] ? { ...l, url: setting(SETTING_KEYS[l.name], l.url) } : l));
+  const facebook = links.find((link) => link.isPrimary);
+  const otherLinks = links.filter((link) => !link.isPrimary);
   const [instagram, youtube, github, tiktok] = otherLinks;
 
   useEffect(() => {
@@ -118,9 +124,9 @@ const SocialLinks = () => {
       </h3>
 
       <div className="flex flex-col gap-4">
-        {/* LinkedIn - Primary Row */}
+        {/* Facebook - Primary Row */}
         <a
-          href={linkedIn.url}
+          href={facebook.url}
           target="_blank"
           rel="noopener noreferrer"
           className="group relative flex items-center justify-between p-4 rounded-lg 
@@ -132,7 +138,7 @@ const SocialLinks = () => {
           {/* Hover Gradient Background */}
           <div
             className={`absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-500
-                       bg-gradient-to-r ${linkedIn.gradient}`}
+                       bg-gradient-to-r ${facebook.gradient}`}
           />
 
           {/* Content Container */}
@@ -142,12 +148,12 @@ const SocialLinks = () => {
               <div
                 className="absolute inset-0 opacity-20 rounded-md transition-all duration-500
                                group-hover:scale-110 group-hover:opacity-30"
-                style={{ backgroundColor: linkedIn.color }}
+                style={{ backgroundColor: facebook.color }}
               />
               <div className="relative p-2 rounded-md">
-                <linkedIn.icon
+                <facebook.icon
                   className="w-6 h-6 transition-all duration-500 group-hover:scale-105"
-                  style={{ color: linkedIn.color }}
+                  style={{ color: facebook.color }}
                 />
               </div>
             </div>
@@ -155,10 +161,10 @@ const SocialLinks = () => {
             {/* Text Container */}
             <div className="flex flex-col">
               <span className="text-lg font-bold pt-[0.2rem] text-gray-200 tracking-tight leading-none group-hover:text-white transition-colors duration-300">
-                {linkedIn.displayName}
+                {facebook.displayName}
               </span>
               <span className="text-sm text-gray-400 group-hover:text-gray-300 transition-colors duration-300">
-                {linkedIn.subText}
+                {facebook.subText}
               </span>
             </div>
           </div>

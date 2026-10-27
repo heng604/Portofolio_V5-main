@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, memo } from "react"
 import { Helmet } from "react-helmet-async"
-import { Github, Linkedin, Mail, ExternalLink, Instagram, Sparkles } from "lucide-react"
+import { Github, Facebook, Mail, ExternalLink, Instagram, Sparkles } from "lucide-react"
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 
@@ -77,11 +77,11 @@ const TYPING_SPEED = 100;
 const ERASING_SPEED = 50;
 const PAUSE_DURATION = 2000;
 const WORDS = ["Network & Telecom Student", "Tech Enthusiast"];
-const TECH_STACK = ["React", "Javascript", "Node.js", "Tailwind"];
+const TECH_STACK = ["React", "Kali Linux", "Wireshark", "Cisco"];
 const SOCIAL_LINKS = [
   { icon: Github, link: "https://github.com/heng604", label: "GitHub Profile" },
-  { icon: Linkedin, link: "https://www.linkedin.com/in/ekizr/", label: "LinkedIn Profile" },
-  { icon: Instagram, link: "https://www.instagram.com/ekizr_/?hl=id", label: "Instagram Profile" }
+  { icon: Facebook, link: "https://www.facebook.com/Masatoshi56566", label: "Facebook Profile" },
+  { icon: Instagram, link: "https://www.instagram.com/wtoto_58/#", label: "Instagram Profile" }
 ];
 
 const Home = () => {
@@ -143,10 +143,10 @@ const Home = () => {
         <title>Theng Seangheng — Networking Engineer</title>
         <meta name="description" content="គេហទំព័រផ្លូវការរបស់ Theng Seangheng, Networking Engineer។ ខ្ញុំផ្តោតលើការបង្កើតបទពិសោធន៍ឌីជីថលដែលទាក់ទាញ ហើយខិតខំផ្តល់ដំណោះស្រាយល្អបំផុតក្នុងគ្រប់គម្រោងដែលខ្ញុំធ្វើ។" />
      <meta name="robots" content="index, follow" />
-        <link rel="canonical" href="https://ekizr.com" />
+        <link rel="canonical" href="https://masatoshi.com" />
         <meta property="og:title" content="Theng Seangheng — Networking Engineer" />
      <meta property="og:description" content="គេហទំព័រផ្លូវការ និង Portfolio របស់ Theng Seangheng, Networking Engineer។" />
-        <meta property="og:url" content="https://ekizr.com" />
+        <meta property="og:url" content="https://masatoshi.com" />
         <meta property="og:type" content="website" />
         <script type="application/ld+json">{`
           {
@@ -154,11 +154,11 @@ const Home = () => {
             "@type": "Person",
             "name": "Theng Seangheng",
             "jobTitle": "Networking Engineer",
-            "url": "https://ekizr.com",
+            "url": "https://masatoshi.com",
             "sameAs": [
               "https://github.com/heng604",
-              "https://www.linkedin.com/in/ekizr/",
-              "https://www.instagram.com/ekizr_/"
+              "https://www.facebook.com/Masatoshi56566",
+              "https://www.instagram.com/wtoto_58/#"
             ]
           }
         `}</script>
