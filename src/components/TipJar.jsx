@@ -82,6 +82,7 @@ export default function TipJar({ preset = null, simulate = null, onPaymentCreate
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
   const [netWarn, setNetWarn] = useState(false);
+  const [netDetail, setNetDetail] = useState("");
   const [showOk, setShowOk] = useState(false);
   const netErrors = useRef(0);
   const countdown = useCountdown(payment?.status === "pending" ? payment.expiresAt : null);
@@ -113,7 +114,7 @@ export default function TipJar({ preset = null, simulate = null, onPaymentCreate
         if (p.status !== "pending") return;
       } catch (e) {
         if (stopped) return;
-        netErrors.current += 1;
+        netErrors.current += 1; setNetDetail(e.message || "");
         if (netErrors.current >= MAX_NET_ERRORS_BEFORE_WARN) setNetWarn(true);
         if (e.status === 404 || e.code === "bad_token") { setFormError(e.message); setPayment(null); return; }
       }
@@ -209,7 +210,7 @@ export default function TipJar({ preset = null, simulate = null, onPaymentCreate
               <p className="flex items-center justify-center gap-2 font-semibold text-gray-700"><Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />{t("tip.waiting")}</p>
               <p className="text-xs text-gray-500">{t("tip.waitingHint")}</p>
               <p className="text-sm text-gray-600 flex items-center justify-center gap-1"><Clock className="w-4 h-4" aria-hidden="true" />{t("tip.expiresIn")} {countdown}</p>
-              {netWarn && <p role="alert" className="text-sm text-amber-700 flex items-center justify-center gap-1"><WifiOff className="w-4 h-4" aria-hidden="true" />{t("tip.netError")}</p>}
+              {netWarn && <p role="alert" className="text-sm text-amber-700 flex items-center justify-center gap-1"><WifiOff className="w-4 h-4" aria-hidden="true" />{t("tip.netError")}{netDetail && <span className="block text-xs mt-1 text-left">{netDetail}</span>}</p>}
               {!simulate && <button onClick={cancel} className="text-sm text-gray-500 underline">{t("tip.cancel")}</button>}
             </>
           )}

@@ -66,6 +66,11 @@ create table if not exists public.site_settings (
   updated_at timestamptz not null default now()
 );
 
+-- Repair older copies of site_settings.
+alter table public.site_settings add column if not exists value jsonb not null default '{}'::jsonb;
+alter table public.site_settings add column if not exists is_public boolean not null default true;
+alter table public.site_settings add column if not exists updated_at timestamptz not null default now();
+
 create table if not exists public.tech_stack (
   id bigint generated always as identity primary key,
   name text not null check (char_length(name) between 1 and 60),
@@ -73,6 +78,13 @@ create table if not exists public.tech_stack (
   is_published boolean not null default true, sort_order integer not null default 0,
   created_at timestamptz not null default now()
 );
+-- Repair older copies of this table (create table if not exists skips tables that already exist).
+alter table public.tech_stack add column if not exists name text;
+alter table public.tech_stack add column if not exists icon_url text;
+alter table public.tech_stack add column if not exists category text not null default 'general';
+alter table public.tech_stack add column if not exists is_published boolean not null default true;
+alter table public.tech_stack add column if not exists sort_order integer not null default 0;
+alter table public.tech_stack add column if not exists created_at timestamptz not null default now();
 create index if not exists tech_stack_order_idx on public.tech_stack (is_published, sort_order);
 
 -- UI translations. namespace.key + language -> text
@@ -84,6 +96,10 @@ create table if not exists public.translations (
   unique (lang, key)
 );
 
+alter table public.portfolio_comments add column if not exists profile_image text;
+alter table public.portfolio_comments add column if not exists is_pinned boolean not null default false;
+alter table public.portfolio_comments add column if not exists created_at timestamptz not null default now();
+
 -- Contact form submissions (written ONLY by the server with the service role).
 create table if not exists public.contact_submissions (
   id uuid primary key default gen_random_uuid(),
@@ -93,6 +109,9 @@ create table if not exists public.contact_submissions (
   ip_hash text,
   created_at timestamptz not null default now()
 );
+alter table public.contact_submissions add column if not exists status text not null default 'received';
+alter table public.contact_submissions add column if not exists is_read boolean not null default false;
+alter table public.contact_submissions add column if not exists ip_hash text;
 create index if not exists contact_created_idx on public.contact_submissions (created_at desc);
 
 -- Bakong tip payments. Holds NO secrets (the Bakong token lives only in .env on the server).
@@ -114,6 +133,13 @@ create table if not exists public.payments (
   expires_at timestamptz not null,
   confirmed_at timestamptz
 );
+alter table public.payments add column if not exists bill_number text;
+alter table public.payments add column if not exists is_test boolean not null default false;
+alter table public.payments add column if not exists environment text not null default 'sandbox';
+alter table public.payments add column if not exists txn_hash text;
+alter table public.payments add column if not exists payer_account text;
+alter table public.payments add column if not exists failure_reason text;
+alter table public.payments add column if not exists confirmed_at timestamptz;
 create index if not exists payments_created_idx on public.payments (created_at desc);
 create index if not exists payments_status_idx on public.payments (status);
 

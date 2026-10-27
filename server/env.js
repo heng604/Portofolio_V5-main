@@ -64,6 +64,8 @@ export const env = Object.freeze({
     merchantCity: get('BAKONG_MERCHANT_CITY') || 'Phnom Penh',
     baseUrl: (get('BAKONG_API_BASE_URL') || 'https://api-bakong.nbc.gov.kh').replace(/\/+$/, ''),
     token: get('BAKONG_API_TOKEN'),
+    relayUrl: get('BAKONG_RELAY_URL').replace(/\/+$/, ''),
+    relaySecret: get('BAKONG_RELAY_SECRET'),
     qrTtlSeconds: Math.min(Math.max(Number(get('BAKONG_QR_TTL_SECONDS')) || 600, 120), 3600),
   },
   resend: {

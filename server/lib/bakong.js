@@ -54,14 +54,18 @@ export function generateKhqr({ amount, currency, billNumber, expiresAtMs }) {
 export async function checkTransactionByMd5(md5) {
   let res;
   try {
-    res = await fetch(`${env.bakong.baseUrl}/v1/check_transaction_by_md5`, {
+    // With a relay configured, Bakong is called from a Cambodian IP (see relay/server.js).
+    const url = `${env.bakong.relayUrl || env.bakong.baseUrl}/v1/check_transaction_by_md5`;
+    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${env.bakong.token}` };
+    if (env.bakong.relayUrl) headers['x-relay-secret'] = env.bakong.relaySecret;
+    res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.bakong.token}` },
+      headers,
       body: JSON.stringify({ md5 }),
       signal: AbortSignal.timeout(10_000),
     });
   } catch (e) {
-    throw new ApiError(504, 'Could not reach the Bakong API (timeout / network).', 'bakong_unreachable');
+    throw new ApiError(504, `Could not reach ${env.bakong.relayUrl ? 'the Bakong relay' : 'the Bakong API'} (timeout / network).`, 'bakong_unreachable');
   }
 
   // Read as TEXT first and parse defensively. Calling res.json() on an empty or HTML
@@ -71,7 +75,7 @@ export async function checkTransactionByMd5(md5) {
   try { body = text ? JSON.parse(text) : null; } catch { body = null; }
 
   if (res.status === 401 || res.status === 403) {
-    throw new ApiError(502, 'Bakong API rejected the request (token invalid/expired, or this server IP is blocked).', 'bakong_auth');
+    throw new ApiError(502, `Bakong rejected the request (HTTP ${res.status}): the token is invalid/expired, OR Bakong blocks this server's IP (Vercel is outside Cambodia) - use the relay, see README.`, 'bakong_auth');
   }
   if (!body) {
     throw new ApiError(502, `Bakong API returned HTTP ${res.status} with ${text ? 'a non-JSON' : 'an empty'} body.`, 'bakong_bad_response');

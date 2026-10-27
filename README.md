@@ -96,6 +96,14 @@ Set every variable from `.env.example` in the host's environment settings, set `
    re-run `supabase/schema.sql` (the function was changed), and make sure the Google provider returns a verified email.
 4. The Bakong verification API can reject servers outside Cambodia. The QR is always generated; if the success popup never appears, check `/api/admin/payments` logs for `bakong_auth`.
 
+## 9c. Success popup does not appear on Vercel (Bakong blocks foreign IPs)
+The QR is generated locally, but confirming a payment needs the Bakong Open API, which commonly rejects Vercel's servers. The card now shows the exact error
+under "connection problem" while it waits. If it says `bakong_auth`/HTTP 403 and your token is correct:
+1. On a computer with a Cambodian IP (your PC at home is enough, or a VPS in Cambodia) run: `RELAY_SECRET=long-random-text node relay/server.js` (PowerShell: `$env:RELAY_SECRET="long-random-text"; node relay/server.js`).
+2. Expose it over HTTPS, e.g. `cloudflared tunnel --url http://localhost:8788` (free), and copy the https URL.
+3. In Vercel set `BAKONG_RELAY_URL=<that url>` and `BAKONG_RELAY_SECRET=long-random-text`, redeploy. The relay must stay running.
+Token note: a sandbox token needs `BAKONG_API_BASE_URL=https://sit-api-bakong.nbc.gov.kh`; a production token needs `https://api-bakong.nbc.gov.kh`.
+
 ## 10. Troubleshooting
 | Symptom | Cause / fix |
 |---|---|
