@@ -1,35 +1,27 @@
 import express from 'express';
-import helmet from 'helmet';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import fs from 'node:fs';
-import { env } from './env.js';
-import { errorHandler, notFoundApi } from './lib/http.js';
-import { router as bakong } from './routes/bakong.js';
-import { router as contact } from './routes/contact.js';
-import { router as adminRoutes } from './routes/admin.js';
+import cors from 'cors';
+import { config } from './env.js';
+import bakongRouter from './routes/bakong.js';
 
 const app = express();
-app.set('trust proxy', 1); // correct client IPs behind Vercel/Render/nginx for rate limiting
-app.disable('x-powered-by');
-app.use(helmet({ contentSecurityPolicy: false })); // CSP is relaxed: the SPA uses inline styles + Spline/Lottie
-app.use(express.json({ limit: '32kb' }));
 
-app.get('/api/health', (req, res) => res.json({ ok: true, features: env.features, bakongEnv: env.bakong.env }));
-app.use('/api/bakong', bakong);
-app.use('/api/contact', contact);
-app.use('/api/admin', adminRoutes);
-app.use('/api', notFoundApi);
+app.use(cors());
+app.use(express.json());
 
-// Production: serve the built SPA from the same origin (no CORS needed).
-const dist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist');
-if (env.isProd && fs.existsSync(dist)) {
-  app.use(express.static(dist));
-  app.get('*', (req, res) => res.sendFile(path.join(dist, 'index.html')));
-}
+// Routes
+app.use('/api/bakong', bakongRouter);
 
-app.use(errorHandler);
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date() });
+});
 
-app.listen(env.port, () => {
-  console.log(`[server] http://localhost:${env.port}  (bakong=${env.bakong.env}, features=${JSON.stringify(env.features)})`);
+// Global error handler to stop server crashes
+app.use((err, req, res, next) => {
+  console.error('Unhandled Server Error:', err.stack);
+  res.status(500).json({ success: false, error: 'Internal Server Error' });
+});
+
+app.listen(config.port, () => {
+  console.log(`pf server listening on port ${config.port}`);
 });
