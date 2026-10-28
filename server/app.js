@@ -31,6 +31,13 @@ app.use('/api', notFoundApi);
 const dist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist');
 if (env.isProd && !process.env.VERCEL && fs.existsSync(dist)) {
   app.use(express.static(dist));
+  // Separate admin SPA (built to dist/admin). noindex, never cached as HTML.
+  app.get(/^\/admin(\/.*)?$/, (req, res, next) => {
+    const file = path.join(dist, 'admin', 'index.html');
+    if (/\.\w+$/.test(req.path)) return next();
+    res.set('X-Robots-Tag', 'noindex'); res.set('Cache-Control', 'no-store');
+    return fs.existsSync(file) ? res.sendFile(file) : next();
+  });
   app.get('*', (req, res) => res.sendFile(path.join(dist, 'index.html')));
 }
 

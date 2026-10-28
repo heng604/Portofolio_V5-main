@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import React, { useState, lazy, Suspense } from "react";
+import React, { useEffect, useState, lazy, Suspense } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import "./index.css";
 import Navbar from "./components/Navbar";
@@ -11,9 +11,7 @@ import Footer from "./components/Footer";
 import TipJar from "./components/TipJar";
 import { LanguageProvider, useLang } from "./lib/i18n";
 
-import Login from "./Pages/Login";
-import Dashboard from "./Pages/Dashboard";
-import ProtectedRoute from "./components/ProtectedRoute";
+import { useSettings } from "./lib/useSetting";
 
 const Portofolio = lazy(() => import("./Pages/Portofolio"));
 const ContactPage = lazy(() => import("./Pages/Contact"));
@@ -34,7 +32,15 @@ const TipSection = () => {
   );
 };
 
+// The admin dashboard is a separate app (/admin). Old bookmarks to /login or /dashboard are forwarded.
+const GoAdmin = () => {
+  useEffect(() => { window.location.replace("/admin/"); }, []);
+  return null;
+};
+
 const LandingPage = ({ showWelcome, setShowWelcome }) => {
+  const settings = useSettings();
+  const on = (key) => settings[key] !== "hidden"; // set from Admin > Appearance > Sections & visibility
   return (
     <>
       <AnimatePresence mode="wait">
@@ -50,11 +56,11 @@ const LandingPage = ({ showWelcome, setShowWelcome }) => {
           <Navbar />
       
           <Home />
-          <About />
+          {on("section_about") && <About />}
           <Suspense fallback={<div className="h-20" />}>
-            <Portofolio />
-            <TipSection />
-            <ContactPage />
+            {on("section_portfolio") && <Portofolio />}
+            {on("section_tip") && <TipSection />}
+            {on("section_contact") && <ContactPage />}
           </Suspense>
           <Footer />
         </>
@@ -97,18 +103,9 @@ function App() {
 
           <Route path="/project/:slug" element={<ProjectPageLayout />} />
 
-          {/* AUTH */}
-          <Route path="/login" element={<Login />} />
-
-          {/* ADMIN (PROTECTED) */}
-          <Route
-            path="/dashboard/*"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
+          {/* Moved to the separate admin app */}
+          <Route path="/login" element={<GoAdmin />} />
+          <Route path="/dashboard/*" element={<GoAdmin />} />
 
           {/* 404 */}
           <Route

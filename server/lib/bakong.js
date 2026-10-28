@@ -3,6 +3,7 @@
 import { createRequire } from 'node:module';
 import { env } from '../env.js';
 import { ApiError } from './http.js';
+import { readUpstream, classifyBakong, AUTH_HELP } from './upstream.js';
 
 const require = createRequire(import.meta.url); // bakong-khqr is CommonJS
 const { BakongKHQR, khqrData, IndividualInfo } = require('bakong-khqr');
@@ -51,40 +52,50 @@ export function generateKhqr({ amount, currency, billNumber, expiresAtMs }) {
 
 // Returns { found:false } when the transaction does not exist (yet), or
 // { found:true, txn } with the Bakong transaction. Throws ApiError on any other problem.
-export async function checkTransactionByMd5(md5) {
+// `fetchImpl` is injectable so tests can mock Bakong without network access.
+export async function callBakong(md5, fetchImpl = fetch) {
+  const via = env.bakong.relayUrl ? 'the Bakong relay' : 'the Bakong API';
   let res;
   try {
     // With a relay configured, Bakong is called from a Cambodian IP (see relay/server.js).
     const url = `${env.bakong.relayUrl || env.bakong.baseUrl}/v1/check_transaction_by_md5`;
     const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${env.bakong.token}` };
     if (env.bakong.relayUrl) headers['x-relay-secret'] = env.bakong.relaySecret;
-    res = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ md5 }),
-      signal: AbortSignal.timeout(10_000),
-    });
+    res = await fetchImpl(url, { method: 'POST', headers, body: JSON.stringify({ md5 }), signal: AbortSignal.timeout(10_000) });
   } catch (e) {
-    throw new ApiError(504, `Could not reach ${env.bakong.relayUrl ? 'the Bakong relay' : 'the Bakong API'} (timeout / network).`, 'bakong_unreachable');
+    const timeout = e?.name === 'TimeoutError' || e?.name === 'AbortError';
+    throw new ApiError(504, `Could not reach ${via} (${timeout ? 'timeout' : 'network error'}).`, timeout ? 'bakong_timeout' : 'bakong_unreachable');
   }
+  const up = await readUpstream(res);
+  const kind = classifyBakong(up, !!env.bakong.relayUrl);
+  return { up, kind, via };
+}
 
-  // Read as TEXT first and parse defensively. Calling res.json() on an empty or HTML
-  // body throws "Unexpected end of JSON input".
-  const text = await res.text();
-  let body = null;
-  try { body = text ? JSON.parse(text) : null; } catch { body = null; }
+export async function checkTransactionByMd5(md5, fetchImpl = fetch) {
+  const { up, kind } = await callBakong(md5, fetchImpl);
+  // Server-side diagnostics only (no token, no body dump beyond Bakong's own message).
+  if (kind !== 'ok' && kind !== 'not_found') {
+    console.error('[bakong] check failed:', { httpStatus: up.status, kind, bodyKind: up.kind, responseCode: up.body?.responseCode, errorCode: up.body?.errorCode, message: up.body?.responseMessage });
+  }
+  if (kind === 'auth_token' || kind === 'auth_blocked' || kind === 'auth_relay') throw new ApiError(502, AUTH_HELP[kind], `bakong_${kind}`);
+  if (kind === 'rate_limited') throw new ApiError(503, 'Bakong is rate limiting requests. Retrying shortly.', 'bakong_rate_limited');
+  if (kind === 'server_error') throw new ApiError(502, `Bakong API is having problems (HTTP ${up.status}).`, 'bakong_server_error');
+  if (kind === 'bad_response') throw new ApiError(502, `Bakong API returned HTTP ${up.status} with ${up.kind === 'empty' ? 'an empty' : 'a non-JSON'} body.`, 'bakong_bad_response');
+  if (kind === 'validation') throw new ApiError(502, `Bakong API rejected the request: ${up.body?.responseMessage || 'validation error'}`, 'bakong_validation');
+  if (kind === 'not_found') return { found: false };
+  return { found: true, txn: up.body.data };
+}
 
-  if (res.status === 401 || res.status === 403) {
-    throw new ApiError(502, `Bakong rejected the request (HTTP ${res.status}): the token is invalid/expired, OR Bakong blocks this server's IP (Vercel is outside Cambodia) - use the relay, see README.`, 'bakong_auth');
+// Admin "Diagnose" button: asks Bakong about a random md5. A healthy token + route answers "not found".
+export async function diagnoseBakong(fetchImpl = fetch) {
+  const probe = Array.from({ length: 32 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
+  try {
+    const { up, kind, via } = await callBakong(probe, fetchImpl);
+    const healthy = kind === 'ok' || kind === 'not_found';
+    return { healthy, kind, httpStatus: up.status, bodyKind: up.kind, via, message: healthy ? 'Bakong accepted the token.' : (AUTH_HELP[kind] || `Unexpected answer from Bakong (${kind}).`) };
+  } catch (e) {
+    return { healthy: false, kind: e.code || 'error', httpStatus: 0, bodyKind: null, via: env.bakong.relayUrl ? 'relay' : 'direct', message: e.message };
   }
-  if (!body) {
-    throw new ApiError(502, `Bakong API returned HTTP ${res.status} with ${text ? 'a non-JSON' : 'an empty'} body.`, 'bakong_bad_response');
-  }
-  if (body.responseCode === 0 && body.data) return { found: true, txn: body.data };
-  // Documented "transaction could not be found" = not paid yet.
-  if (body.responseCode === 1 && Number(body.errorCode) === 3) return { found: false };
-  console.error('[bakong] unexpected response:', res.status, body.responseCode, body.errorCode, body.responseMessage);
-  throw new ApiError(502, `Bakong API error: ${body.responseMessage || 'unknown'}`, 'bakong_error');
 }
 
 // Strict match of a Bakong transaction against what we asked for.

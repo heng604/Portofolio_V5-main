@@ -1,3 +1,48 @@
+# Admin v2 (separate admin app) - read this first
+
+```
+/                    public portfolio   (src/)            built to dist/
+/admin               admin dashboard    (admin/)          built to dist/admin/   <- separate Vite app, own entry + config
+/api/*               Express API        (server/)         Bakong, Resend, admin endpoints (service-role key stays here)
+supabase/schema.sql  base schema        supabase/migrations/20261028_admin_v2.sql  <- run second (safe to re-run)
+```
+
+**Commands**
+```
+npm install
+npm run dev:all        # public :5173, admin :5174/admin/, API :8787
+npm run build          # builds public + admin
+npm test               # server tests (Bakong is mocked, no network)
+npm start              # NODE_ENV=production, serves dist/ and dist/admin/ and /api
+```
+
+**Database:** run `supabase/schema.sql`, then `supabase/migrations/20261028_admin_v2.sql` in the Supabase SQL editor. The migration adds
+`audit_logs` (admin-read-only, written by triggers/server), triggers that log every content/settings edit, payment hardening
+(`updated_at`, confirmed payments immutable, unique txn hash) and default section-visibility settings. Nothing is dropped.
+
+**Admin pages:** Overview (live stats), Portfolio content (projects, hero/about text, skills, certificates, translations, comments, messages),
+Appearance & settings (SEO/OG image, section visibility, contact + social, CV, live preview), Payments (search/filter/sort/paginate,
+detail drawer, re-verify with Bakong, audited void, Bakong diagnose, test QR).
+
+**Security model:** sign-in = Google via Supabase; every admin DB operation is enforced by RLS (`public.is_admin()`), every `/api/admin/*`
+route verifies the Supabase JWT on the server and compares the email with `ADMIN_EMAIL`, and is rate limited. The browser only gets the anon key.
+The API uses Bearer tokens, not cookies, so CSRF does not apply. Payment status `confirmed` is only ever written by the server after Bakong
+confirms the exact account + amount + currency; admins can re-verify or void a record but can never mark one paid by hand.
+
+## Fixing the Bakong HTTP 401
+The server now reads Bakong's reply as text and classifies it (`server/lib/upstream.js`), so you get one precise message instead of a JSON parse error:
+
+| What you see | Meaning | Fix |
+|---|---|---|
+| `bakong_auth_token` (401, JSON body) | Bakong answered and rejected the token | Renew the token in the Bakong Open API portal; put it in `BAKONG_API_TOKEN` with no quotes and no `Bearer ` prefix; restart/redeploy |
+| `bakong_auth_blocked` (401/403, empty/HTML body) | Request stopped before the API (IP/geo block) | Run `relay/server.js` on a Cambodian host; set `BAKONG_RELAY_URL` + `BAKONG_RELAY_SECRET` |
+| `auth_relay` | Relay secret mismatch | `BAKONG_RELAY_SECRET` must equal `RELAY_SECRET` |
+
+Use **Admin > Payments > Diagnose Bakong connection** to see which case you are in (it never shows secrets). I could not call Bakong from the build environment,
+so which row applies to your credentials is confirmed only when you press that button with your real `.env`.
+
+---
+
 # Theng Seangheng - Portfolio (React + Vite + secure Node API + Supabase)
 
 React/Vite front end (your original portfolio, preserved) + `server/` (Express) for everything that needs secrets:

@@ -65,27 +65,51 @@ router.post('/create', requireBakong, limiter(10), asyncRoute(async (req, res) =
 }));
 
 // Stateless check: the signed token carries amount/currency/md5. We ask Bakong whether that md5 was paid.
+// Success is decided ONLY here, from Bakong's answer. Confirmation is idempotent: repeated polls or duplicate
+// requests never create a second confirmation (the txn hash is unique, and a confirmed row is never rewritten).
+export async function verifyAndRecord(t, { check = checkTransactionByMd5 } = {}) {
+  const now = Date.now();
+  const base = { id: t.id, amount: t.amount, currency: t.currency, expiresAt: new Date(t.exp).toISOString() };
+  const result = await check(t.md5);
+  if (!result.found) return { ...base, status: now > t.exp ? 'expired' : 'pending' };
+
+  const m = matchesPayment(result.txn, { amount: t.amount, currency: t.currency });
+  if (!m.ok) {
+    console.error('[bakong] txn mismatch for', t.id, { sameAccount: m.sameAccount, sameCurrency: m.sameCurrency, sameAmount: m.sameAmount });
+    store.updatePayment(t.id, { status: 'failed', failure_reason: 'mismatch' }).catch(() => {});
+    return { ...base, status: 'failed' };
+  }
+  const hash = result.txn.hash || null;
+  let existing = null;
+  try { existing = await store.getPayment(t.id); } catch { /* DB is only a log */ }
+  if (existing?.status === 'confirmed') return { ...base, status: 'confirmed', confirmedAt: existing.confirmed_at };
+
+  if (hash) {
+    const other = await store.findByTxnHash(hash).catch(() => null);
+    if (other && other.id !== t.id) {
+      store.updatePayment(t.id, { status: 'failed', failure_reason: 'duplicate_txn' }).catch(() => {});
+      return { ...base, status: 'failed' };
+    }
+  }
+  const confirmedAt = new Date().toISOString();
+  store.updatePayment(t.id, { status: 'confirmed', txn_hash: hash, payer_account: result.txn.fromAccountId || null, confirmed_at: confirmedAt, failure_reason: null })
+    .catch((e) => console.error('[bakong] could not log confirmation:', e?.message || e));
+  return { ...base, status: 'confirmed', confirmedAt };
+}
+
 router.post('/check', requireBakong, limiter(40), asyncRoute(async (req, res) => {
   const t = verifyPayment(req.body?.token);
-  const view = (status, extra = {}) => res.json({ ok: true, payment: { id: t.id, status, amount: t.amount, currency: t.currency, expiresAt: new Date(t.exp).toISOString(), ...extra } });
   const now = Date.now();
-  if (!env.bakongVerify) return res.json({ ok: true, verification: false, payment: { id: t.id, status: now > t.exp ? 'expired' : 'pending', amount: t.amount, currency: t.currency, expiresAt: new Date(t.exp).toISOString() } });
-
-  if (now - (lastCheck.get(t.id) || 0) < MIN_CHECK_GAP_MS) return view(now > t.exp ? 'expired' : 'pending');
-  lastCheck.set(t.id, now);
-
-  const result = await checkTransactionByMd5(t.md5);
-  if (result.found) {
-    const m = matchesPayment(result.txn, { amount: t.amount, currency: t.currency });
-    if (!m.ok) {
-      store.updatePayment(t.id, { status: 'failed', failure_reason: 'mismatch' }).catch(() => {});
-      return view('failed');
-    }
-    const confirmedAt = new Date().toISOString();
-    store.updatePayment(t.id, { status: 'confirmed', txn_hash: result.txn.hash || null, payer_account: result.txn.fromAccountId || null, confirmed_at: confirmedAt }).catch(() => {});
-    return view('confirmed', { confirmedAt });
+  if (!env.bakongVerify) {
+    return res.json({ ok: true, verification: false, payment: { id: t.id, status: now > t.exp ? 'expired' : 'pending', amount: t.amount, currency: t.currency, expiresAt: new Date(t.exp).toISOString() } });
   }
-  return view(now > t.exp ? 'expired' : 'pending');
+  if (now - (lastCheck.get(t.id) || 0) < MIN_CHECK_GAP_MS) {
+    return res.json({ ok: true, payment: { id: t.id, status: now > t.exp ? 'expired' : 'pending', amount: t.amount, currency: t.currency, expiresAt: new Date(t.exp).toISOString() } });
+  }
+  lastCheck.set(t.id, now);
+  const payment = await verifyAndRecord(t);
+  if (payment.status === 'expired') store.updatePayment(t.id, { status: 'expired' }).catch(() => {});
+  res.json({ ok: true, payment });
 }));
 
 router.post('/cancel', requireBakong, limiter(20), asyncRoute(async (req, res) => {

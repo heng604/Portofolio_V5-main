@@ -161,8 +161,9 @@ const Home = () => {
         <meta name="description" content={cfg.seo_description || "គេហទំព័រផ្លូវការរបស់ Theng Seangheng, Networking Engineer។ ខ្ញុំផ្តោតលើការបង្កើតបទពិសោធន៍ឌីជីថលដែលទាក់ទាញ ហើយខិតខំផ្តល់ដំណោះស្រាយល្អបំផុតក្នុងគ្រប់គម្រោងដែលខ្ញុំធ្វើ។"} />
      <meta name="robots" content="index, follow" />
         <link rel="canonical" href="https://masatoshi.com" />
-        <meta property="og:title" content="Theng Seangheng — Networking Engineer" />
-     <meta property="og:description" content="គេហទំព័រផ្លូវការ និង Portfolio របស់ Theng Seangheng, Networking Engineer។" />
+        <meta property="og:title" content={cfg.seo_title || "Theng Seangheng — Networking Engineer"} />
+        {cfg.og_image && <meta property="og:image" content={cfg.og_image} />}
+     <meta property="og:description" content={cfg.seo_description || "គេហទំព័រផ្លូវការ និង Portfolio របស់ Theng Seangheng, Networking Engineer។"} />
         <meta property="og:url" content="https://masatoshi.com" />
         <meta property="og:type" content="website" />
         <script type="application/ld+json">{`

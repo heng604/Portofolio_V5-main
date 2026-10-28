@@ -21,14 +21,20 @@ function useCountdown(expiresAt) {
   return `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`;
 }
 
+// Official KHQR wordmark on the Bakong red header.
+function KhqrHeader() {
+  return (
+    <div className="bg-[#e2232f] py-4 flex items-center justify-center">
+      <img src="/khqr-logo.png" alt="KHQR" className="h-10 w-auto" draggable="false" />
+    </div>
+  );
+}
+
 // The Bakong-style card: red header, white body, dotted separator, KHQR with logo.
 export function KhqrCard({ recipient, amount, currency, qr, children, badge }) {
   return (
     <div className="w-full max-w-sm mx-auto rounded-2xl overflow-hidden shadow-2xl bg-white text-gray-900">
-      <div className="bg-[#e1232e] py-4 flex items-center justify-center gap-2">
-        <img src="/bakong-logo.svg" alt="" className="w-7 h-7" />
-        <span className="text-white font-extrabold tracking-widest text-xl">KHQR</span>
-      </div>
+      <KhqrHeader />
       {badge}
       <div className="px-6 pt-5 pb-3">
         <p className="text-sm text-gray-500">{recipient?.name}</p>
@@ -45,7 +51,7 @@ export function KhqrCard({ recipient, amount, currency, qr, children, badge }) {
           level="H"
           marginSize={1}
           className="w-full h-auto max-w-[260px]"
-          imageSettings={{ src: "/bakong-logo.svg", height: 48, width: 48, excavate: true }}
+          imageSettings={{ src: "/bakong-logo.png", height: 48, width: 48, excavate: true }}
           title="Bakong KHQR"
         />
       </div>
@@ -54,16 +60,42 @@ export function KhqrCard({ recipient, amount, currency, qr, children, badge }) {
   );
 }
 
+// Shown ONLY after the server reported status "confirmed" (verified against Bakong) - or in the labelled admin preview.
 function SuccessModal({ payment, onClose, t, simulated = false }) {
+  const btn = useRef(null);
+  useEffect(() => {
+    const prev = document.activeElement;
+    btn.current?.focus();
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("keydown", onKey); prev?.focus?.(); };
+  }, [onClose]);
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="tip-ok" className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70">
+    <div role="dialog" aria-modal="true" aria-labelledby="tip-ok" aria-describedby="tip-ok-desc"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <style>{`
+        @keyframes tipPop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+        @keyframes tipDraw{to{stroke-dashoffset:0}}
+        @keyframes tipRing{0%{transform:scale(.8);opacity:.6}100%{transform:scale(1.7);opacity:0}}
+        .tip-ok-circle{animation:tipPop .55s cubic-bezier(.2,.9,.3,1.2) both}
+        .tip-ok-check{stroke-dasharray:34;stroke-dashoffset:34;animation:tipDraw .45s .35s ease-out forwards}
+        .tip-ok-ring{animation:tipRing 1.1s .2s ease-out both}
+        @media (prefers-reduced-motion:reduce){.tip-ok-circle,.tip-ok-ring{animation:none}.tip-ok-check{animation:none;stroke-dashoffset:0}}
+      `}</style>
       <div className="bg-white text-gray-900 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
-        <CheckCircle2 className="w-20 h-20 text-green-500 mx-auto" aria-hidden="true" />
+        <div className="relative w-24 h-24 mx-auto" aria-hidden="true">
+          <span className="tip-ok-ring absolute inset-0 rounded-full bg-green-400/40" />
+          <svg viewBox="0 0 52 52" className="tip-ok-circle relative w-24 h-24">
+            <circle cx="26" cy="26" r="25" fill="#22c55e" />
+            <path className="tip-ok-check" d="M14 27 l8 8 16-17" fill="none" stroke="#fff" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
         {simulated && <p className="mt-3 inline-block bg-amber-400 text-black text-xs font-bold px-2 py-1 rounded">SIMULATED - NOT A REAL PAYMENT</p>}
-        <h3 id="tip-ok" className="text-2xl font-bold mt-4">{t("tip.successTitle")}</h3>
-        <p className="mt-1 font-semibold">{fmt(payment.amount, payment.currency)}</p>
-        <p className="text-gray-600 mt-2">{t("tip.successText")}</p>
-        <button autoFocus onClick={onClose} className="mt-6 w-full py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold">{t("tip.close")}</button>
+        <h3 id="tip-ok" className="text-2xl font-bold mt-5">{t("tip.successTitle")}</h3>
+        <p className="text-lg font-semibold text-green-600 mt-1">{t("tip.thanks")}</p>
+        <p className="mt-3 font-semibold">{fmt(payment.amount, payment.currency)}</p>
+        <p id="tip-ok-desc" className="text-gray-600 mt-2 text-sm">{t("tip.successText")}</p>
+        <button ref={btn} onClick={onClose} className="mt-6 w-full py-2.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold">{t("tip.close")}</button>
       </div>
     </div>
   );
@@ -166,9 +198,7 @@ export default function TipJar({ preset = null, simulate = null, onPaymentCreate
     const lim = cfg.limits?.[currency];
     return (
       <form onSubmit={generate} noValidate className="w-full max-w-sm mx-auto rounded-2xl overflow-hidden bg-white text-gray-900 shadow-2xl">
-        <div className="bg-[#e1232e] py-4 flex items-center justify-center gap-2">
-          <img src="/bakong-logo.svg" alt="" className="w-7 h-7" /><span className="text-white font-extrabold tracking-widest text-xl">KHQR</span>
-        </div>
+        <KhqrHeader />
         {envBadge}
         <div className="p-6 space-y-4">
           <p className="text-sm text-gray-500">{t("tip.to")}: <b className="text-gray-900">{cfg.recipient?.name}</b></p>
@@ -219,7 +249,7 @@ export default function TipJar({ preset = null, simulate = null, onPaymentCreate
           {status === "expired" && <p role="alert" className="text-red-600 flex items-center justify-center gap-1"><Clock className="w-4 h-4" aria-hidden="true" />{t("tip.expired")}</p>}
           {status === "cancelled" && <p className="text-gray-600 flex items-center justify-center gap-1"><XCircle className="w-4 h-4" aria-hidden="true" />{t("tip.cancelled")}</p>}
           {status === "failed" && <p role="alert" className="text-red-600 text-sm flex items-start gap-1 text-left"><AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />{t("tip.failed")}</p>}
-          {status === "confirmed" && <p className="text-green-600 font-semibold flex items-center justify-center gap-1"><CheckCircle2 className="w-5 h-5" aria-hidden="true" />{t("tip.successTitle")}</p>}
+          {status === "confirmed" && !showOk && <p className="text-green-600 font-semibold flex items-center justify-center gap-1"><CheckCircle2 className="w-5 h-5" aria-hidden="true" />{t("tip.thanks")}</p>}
           {(terminal || status === "confirmed") && !simulate && (
             <button onClick={reset} className="w-full py-2.5 rounded-xl bg-[#e1232e] text-white font-semibold">{terminal ? t("tip.retry") : t("tip.new")}</button>
           )}

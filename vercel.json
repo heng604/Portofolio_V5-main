@@ -2,7 +2,8 @@
   "functions": { "api/index.js": { "maxDuration": 15 } },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/admin", "destination": "/admin/index.html" },
+    { "source": "/admin/((?!assets/).*)", "destination": "/admin/index.html" },
     { "source": "/(.*)", "destination": "/" }
   ]
 }
