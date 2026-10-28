@@ -68,16 +68,19 @@ export async function callBakong(md5, fetchImpl = fetch) {
   }
   const up = await readUpstream(res);
   const kind = classifyBakong(up, !!env.bakong.relayUrl);
-  return { up, kind, via };
+  let host = '?';
+  try { host = new URL(env.bakong.relayUrl || env.bakong.baseUrl).host; } catch { /* keep ? */ }
+  return { up, kind, via, host };
 }
 
 export async function checkTransactionByMd5(md5, fetchImpl = fetch) {
-  const { up, kind } = await callBakong(md5, fetchImpl);
+  const { up, kind, host } = await callBakong(md5, fetchImpl);
   // Server-side diagnostics only (no token, no body dump beyond Bakong's own message).
   if (kind !== 'ok' && kind !== 'not_found') {
     console.error('[bakong] check failed:', { httpStatus: up.status, kind, bodyKind: up.kind, responseCode: up.body?.responseCode, errorCode: up.body?.errorCode, message: up.body?.responseMessage });
   }
   if (kind === 'auth_token' || kind === 'auth_blocked' || kind === 'auth_relay') throw new ApiError(502, AUTH_HELP[kind], `bakong_${kind}`);
+  if (kind === 'wrong_endpoint') throw new ApiError(502, `HTTP ${up.status} from ${host}: that address does not accept POST /v1/check_transaction_by_md5. Check BAKONG_API_BASE_URL (should be https://api-bakong.nbc.gov.kh) and leave BAKONG_RELAY_URL empty unless the relay is really running there.`, 'bakong_wrong_endpoint');
   if (kind === 'rate_limited') throw new ApiError(503, 'Bakong is rate limiting requests. Retrying shortly.', 'bakong_rate_limited');
   if (kind === 'server_error') throw new ApiError(502, `Bakong API is having problems (HTTP ${up.status}).`, 'bakong_server_error');
   if (kind === 'bad_response') throw new ApiError(502, `Bakong API returned HTTP ${up.status} with ${up.kind === 'empty' ? 'an empty' : 'a non-JSON'} body.`, 'bakong_bad_response');
@@ -90,9 +93,9 @@ export async function checkTransactionByMd5(md5, fetchImpl = fetch) {
 export async function diagnoseBakong(fetchImpl = fetch) {
   const probe = Array.from({ length: 32 }, () => '0123456789abcdef'[Math.floor(Math.random() * 16)]).join('');
   try {
-    const { up, kind, via } = await callBakong(probe, fetchImpl);
+    const { up, kind, via, host } = await callBakong(probe, fetchImpl);
     const healthy = kind === 'ok' || kind === 'not_found';
-    return { healthy, kind, httpStatus: up.status, bodyKind: up.kind, via, message: healthy ? 'Bakong accepted the token.' : (AUTH_HELP[kind] || `Unexpected answer from Bakong (${kind}).`) };
+    return { healthy, kind, httpStatus: up.status, bodyKind: up.kind, via, message: healthy ? 'Bakong accepted the token.' : (kind === 'wrong_endpoint' ? `HTTP ${up.status} from ${host}: wrong URL. Check BAKONG_API_BASE_URL / BAKONG_RELAY_URL.` : AUTH_HELP[kind] || `Unexpected answer from Bakong (${kind}).`) };
   } catch (e) {
     return { healthy: false, kind: e.code || 'error', httpStatus: 0, bodyKind: null, via: env.bakong.relayUrl ? 'relay' : 'direct', message: e.message };
   }

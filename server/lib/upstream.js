@@ -24,6 +24,7 @@ export function classifyBakong({ status, body, kind }, viaRelay = false) {
   if (status === 401 || status === 403) {
     return kind === 'json' ? 'auth_token' : 'auth_blocked';
   }
+  if (status === 404 || status === 405) return 'wrong_endpoint';
   if (status === 429) return 'rate_limited';
   if (status >= 500) return 'server_error';
   if (kind !== 'json' || !body || typeof body !== 'object') return 'bad_response';

@@ -32,3 +32,6 @@ test('documented found / not-found answers', async () => {
   assert.equal(classifyBakong(await readUpstream(resp(200, '{"responseCode":1,"errorCode":3}'))), 'not_found');
   assert.equal(classifyBakong(await readUpstream(resp(429, '{}'))), 'rate_limited');
 });
+test('405 with empty body = wrong endpoint', async () => {
+  assert.equal(classifyBakong(await readUpstream(resp(405, ''))), 'wrong_endpoint');
+});
